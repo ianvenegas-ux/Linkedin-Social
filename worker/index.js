@@ -13,12 +13,24 @@ const APP_ENHANCEMENT = `<script>
     }
     return nativeFetch(input, init);
   };
+  const linkedinConnectUrl = 'https://qjvaqxjmxydqjrcwuavp.supabase.co/functions/v1/linkedin-oauth-start';
+  const accountBar = document.querySelector('.account');
+  const logoutButton = document.getElementById('logoutBtn');
+  if (accountBar && logoutButton) {
+    const connectLink = document.createElement('a');
+    connectLink.href = linkedinConnectUrl;
+    connectLink.target = '_blank';
+    connectLink.rel = 'noopener';
+    connectLink.className = 'secondary linkedin-connect';
+    connectLink.textContent = 'Conectar LinkedIn';
+    accountBar.insertBefore(connectLink, logoutButton);
+  }
   const loginError = document.getElementById('loginError');
   const loginForm = document.getElementById('loginForm');
   const emailInput = document.getElementById('email');
   const loginView = document.getElementById('loginView');
   const style = document.createElement('style');
-  style.textContent = '.auth-link{display:block;width:100%;margin:13px 0 0;padding:4px;border:0;background:transparent;color:#0a66c2;font-weight:700;cursor:pointer}.auth-link:hover{text-decoration:underline}.reset-view{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(140deg,#eef6ff 0%,#f7f9fb 52%,#eaf1f8 100%)}.reset-card{width:min(420px,100%);background:#fff;border:1px solid #dfe3e8;border-radius:16px;padding:32px;box-shadow:0 18px 50px #17324d16}.reset-card h1{margin:28px 0 6px;font-size:25px;letter-spacing:-.03em}.reset-card p{color:#6b778c;margin:0 0 24px}.reset-card label{display:block;font-weight:650;margin:14px 0 7px}.reset-card input{width:100%;border:1px solid #b8c0cc;border-radius:8px;padding:11px 12px;font:inherit}.reset-card button[type=submit]{width:100%;margin-top:20px;border:0;border-radius:8px;padding:10px 15px;background:#0a66c2;color:#fff;font-weight:700}.reset-error{margin-top:14px;padding:10px 12px;border-radius:8px;background:#fff0ef;color:#b42318}.hidden{display:none!important}';
+  style.textContent = '.linkedin-connect{display:inline-flex;align-items:center;text-decoration:none;white-space:nowrap}.auth-link{display:block;width:100%;margin:13px 0 0;padding:4px;border:0;background:transparent;color:#0a66c2;font-weight:700;cursor:pointer}.auth-link:hover{text-decoration:underline}.reset-view{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(140deg,#eef6ff 0%,#f7f9fb 52%,#eaf1f8 100%)}.reset-card{width:min(420px,100%);background:#fff;border:1px solid #dfe3e8;border-radius:16px;padding:32px;box-shadow:0 18px 50px #17324d16}.reset-card h1{margin:28px 0 6px;font-size:25px;letter-spacing:-.03em}.reset-card p{color:#6b778c;margin:0 0 24px}.reset-card label{display:block;font-weight:650;margin:14px 0 7px}.reset-card input{width:100%;border:1px solid #b8c0cc;border-radius:8px;padding:11px 12px;font:inherit}.reset-card button[type=submit]{width:100%;margin-top:20px;border:0;border-radius:8px;padding:10px 15px;background:#0a66c2;color:#fff;font-weight:700}.reset-error{margin-top:14px;padding:10px 12px;border-radius:8px;background:#fff0ef;color:#b42318}.hidden{display:none!important}';
   document.head.appendChild(style);
 
   const resetButton = document.createElement('button');
@@ -124,7 +136,7 @@ export default {
     if (url.pathname === "/api/auth/user") return forward(request, env, "/auth/v1/user");
     if (url.pathname.startsWith("/api/rest/")) return forward(request, env, url.pathname.replace("/api/rest", "/rest"));
     if (url.pathname.startsWith("/api/storage/")) return forward(request, env, url.pathname.replace("/api/storage", "/storage"));
-    if (url.pathname.startsWith("/api/functions/")) return forward(request, env, url.pathname.replace("/api/functions", "/functions"));
+    if (url.pathname.startsWith("/api/functions/")) return forward(request, env, url.pathname.replace("/api/functions", "/functions/v1"));
     return json({ error: "Not found" }, 404);
   },
 };
