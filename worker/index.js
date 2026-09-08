@@ -3,6 +3,16 @@ const APP_HTML = "<!doctype html>\n<html lang=\"es\">\n<head>\n  <meta charset=\
 
 const APP_ENHANCEMENT = `<script>
 (() => {
+  // Keep the ChatGPT Site session on the internal auth requests. The Site
+  // gateway rejects requests without this cookie before the Worker runs.
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = (input, init = {}) => {
+    const path = typeof input === 'string' ? new URL(input, location.origin).pathname : input instanceof Request ? new URL(input.url).pathname : '';
+    if (path === '/api/auth/login' || path === '/api/auth/recover') {
+      return nativeFetch(input, { ...init, credentials: 'same-origin' });
+    }
+    return nativeFetch(input, init);
+  };
   const loginError = document.getElementById('loginError');
   const loginForm = document.getElementById('loginForm');
   const emailInput = document.getElementById('email');
