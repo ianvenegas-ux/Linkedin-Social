@@ -18,6 +18,9 @@ async function forward(request, env, targetPath) {
   const headers = new Headers(request.headers);
   const key = env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || "";
   headers.set("apikey", key);
+  if (targetPath === "/auth/v1/token" || targetPath === "/auth/v1/recover") {
+    headers.set("Authorization", "Bearer " + key);
+  }
   headers.delete("host");
   const init = { method: request.method, headers, redirect: "follow" };
   if (!["GET", "HEAD"].includes(request.method)) init.body = await request.arrayBuffer();
