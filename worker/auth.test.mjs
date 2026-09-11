@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+
+const source = fs.readFileSync(new URL("./index.js", import.meta.url), "utf8");
+
+assert.match(source, /\/api\/auth\/recover/, "the worker must proxy password recovery");
+assert.match(source, /async function requestPasswordReset\(/, "the UI must request a recovery email");
+assert.match(source, /async function updatePassword\(/, "the UI must update the password from a recovery link");
+assert.match(source, /¿Olvidaste|Restablecer contraseña/, "the login must expose password recovery");
+console.log("auth recovery regression test passed");
+
