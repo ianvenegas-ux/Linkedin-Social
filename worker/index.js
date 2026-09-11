@@ -8,6 +8,10 @@ const ENHANCED_APP_HTML = (() => {
     ".save-status { color:var(--green); font-size:12px; font-weight:700; align-self:center; } .save-status.bad { color:var(--red); } .primary:disabled,.secondary:disabled { opacity:.65; cursor:wait; } .crop-panel { margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:10px; background:#f7f9fb; } .crop-head { display:flex; align-items:center; justify-content:space-between; gap:10px; } .crop-head button { padding:7px 10px; } .crop-stage { margin-top:12px; overflow:hidden; border-radius:8px; background:#172b4d; } .crop-stage canvas { display:block; width:100%; height:auto; } .crop-control { margin-top:10px; } .crop-control label { display:flex; justify-content:space-between; margin:0 0 5px; font-size:13px; } .crop-control input { padding:0; border:0; box-shadow:none; } .crop-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; } .toast { position:fixed;",
   );
   html = html.replace(
+    ".crop-stage canvas { display:block; width:100%; height:auto; }",
+    ".crop-stage canvas { display:block; width:100%; height:auto; cursor:grab; touch-action:none; } .crop-stage canvas.dragging { cursor:grabbing; }",
+  );
+  html = html.replace(
     "    let recoveryMode = 'closed';",
     "    let recoveryMode = 'closed';\n    let saveInProgress = false;\n    let cropState = null;",
   );
@@ -24,18 +28,16 @@ const ENHANCED_APP_HTML = (() => {
     '            <div id="cropPanel" class="crop-panel hidden" aria-label="Ajustar encuadre"><div class="crop-head"><strong>Ajustar encuadre</strong><button id="closeCropBtn" class="secondary" type="button">Cerrar</button></div><div class="crop-stage"><canvas id="cropCanvas" width="680" height="400"></canvas></div><div class="crop-control"><label for="cropZoom"><span>Zoom</span><span id="cropZoomValue">100%</span></label><input id="cropZoom" type="range" min="100" max="240" value="100"></div><div class="crop-control"><label for="cropX"><span>Horizontal</span><span id="cropXValue">Centro</span></label><input id="cropX" type="range" min="-100" max="100" value="0"></div><div class="crop-control"><label for="cropY"><span>Vertical</span><span id="cropYValue">Centro</span></label><input id="cropY" type="range" min="-100" max="100" value="0"></div><div class="crop-actions"><button id="resetCropBtn" class="secondary" type="button">Restablecer</button><button id="applyCropBtn" class="primary" type="button">Aplicar recorte</button></div></div><div class="field-row"><div><label for="scheduledAt">Programar para</label>',
   );
   html = html.replace(
+    /<div id="cropPanel" class="crop-panel hidden" aria-label="Ajustar encuadre">[\s\S]*?<\/div><div class="field-row">/,
+    '<div id="cropPanel" class="crop-panel hidden" aria-label="Ajustar encuadre"><div class="crop-head"><strong>Ajustar encuadre</strong><button id="closeCropBtn" class="secondary" type="button">Cerrar</button></div><p class="crop-help">Arrastra la imagen dentro del recuadro para encuadrarla.</p><div class="crop-stage"><canvas id="cropCanvas" width="680" height="400" aria-label="Arrastra la imagen para encuadrarla"></canvas></div><div class="crop-actions"><button id="resetCropBtn" class="secondary" type="button">Restablecer</button><button id="applyCropBtn" class="primary" type="button">Aplicar recorte</button></div></div><div class="field-row">',
+  );
+  html = html.replace(
     '    function bindComposer() {',
     `    function setSaveBusy(busy) {
       const saveButton = $("saveBtn");
       const approveButton = $("approveBtn");
       if (saveButton) { saveButton.disabled = busy; saveButton.textContent = busy ? "Guardando…" : "Guardar borrador"; }
       if (approveButton) approveButton.disabled = busy;
-    }
-
-    function cropLabel(value, axis) {
-      const number = Number(value || 0);
-      if (!number) return "Centro";
-      return axis === "x" ? (number < 0 ? "Izquierda" : "Derecha") : (number < 0 ? "Arriba" : "Abajo");
     }
 
     function drawCropPreview() {
@@ -58,17 +60,6 @@ const ENHANCED_APP_HTML = (() => {
       const sourceY = maxY * (state.y + 100) / 200;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(state.imageEl, sourceX, sourceY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
-      $("cropZoomValue").textContent = Math.round(state.zoom * 100) + "%";
-      $("cropXValue").textContent = cropLabel(state.x, "x");
-      $("cropYValue").textContent = cropLabel(state.y, "y");
-    }
-
-    function syncCropControls() {
-      if (!cropState) return;
-      $("cropZoom").value = String(Math.round(cropState.zoom * 100));
-      $("cropX").value = String(cropState.x);
-      $("cropY").value = String(cropState.y);
-      drawCropPreview();
     }
 
     async function openCropEditor() {
@@ -83,7 +74,7 @@ const ENHANCED_APP_HTML = (() => {
       cropState.imageEl.onload = drawCropPreview;
       cropState.imageEl.onerror = () => showToast("No se pudo cargar la imagen para recortarla.", true);
       cropState.imageEl.src = src;
-      syncCropControls();
+      drawCropPreview();
     }
 
     function closeCropEditor() {
@@ -96,7 +87,7 @@ const ENHANCED_APP_HTML = (() => {
       cropState.zoom = 1;
       cropState.x = 0;
       cropState.y = 0;
-      syncCropControls();
+      drawCropPreview();
     }
 
     function applyCropEditor() {
@@ -117,6 +108,59 @@ const ENHANCED_APP_HTML = (() => {
     }
 
     function bindComposer() {`,
+  );
+  html = html.replace(
+    '    async function openCropEditor() {',
+    `    function bindCropDrag() {
+      const canvas = $("cropCanvas");
+      if (!canvas) return;
+      canvas.addEventListener("pointerdown", event => {
+        if (!cropState || !cropState.imageEl.naturalWidth) return;
+        cropState.dragging = true;
+        cropState.pointerId = event.pointerId;
+        cropState.startPointerX = event.clientX;
+        cropState.startPointerY = event.clientY;
+        cropState.startX = cropState.x;
+        cropState.startY = cropState.y;
+        canvas.setPointerCapture?.(event.pointerId);
+        canvas.classList.add("dragging");
+      });
+      canvas.addEventListener("pointermove", event => {
+        const state = cropState;
+        if (!state?.dragging || state.pointerId !== event.pointerId) return;
+        const sourceWidth = state.imageEl.naturalWidth;
+        const sourceHeight = state.imageEl.naturalHeight;
+        const aspect = canvas.width / canvas.height;
+        let cropWidth = sourceWidth;
+        let cropHeight = sourceHeight;
+        if (cropWidth / cropHeight > aspect) cropWidth = cropHeight * aspect;
+        else cropHeight = cropWidth / aspect;
+        const maxX = Math.max(0, sourceWidth - cropWidth);
+        const maxY = Math.max(0, sourceHeight - cropHeight);
+        const rect = canvas.getBoundingClientRect();
+        if (maxX) state.x = Math.max(-100, Math.min(100, state.startX - (event.clientX - state.startPointerX) * cropWidth / rect.width / maxX * 200));
+        if (maxY) state.y = Math.max(-100, Math.min(100, state.startY - (event.clientY - state.startPointerY) * cropHeight / rect.height / maxY * 200));
+        drawCropPreview();
+      });
+      const stopDragging = event => {
+        if (!cropState?.dragging || cropState.pointerId !== event.pointerId) return;
+        cropState.dragging = false;
+        canvas.releasePointerCapture?.(event.pointerId);
+        canvas.classList.remove("dragging");
+      };
+      canvas.addEventListener("pointerup", stopDragging);
+      canvas.addEventListener("pointercancel", stopDragging);
+    }
+
+    async function openCropEditor() {`,
+  );
+  html = html.replace(
+    '      $("cropZoomValue").textContent = Math.round(state.zoom * 100) + "%";\n      $("cropXValue").textContent = cropLabel(state.x, "x");\n      $("cropYValue").textContent = cropLabel(state.y, "y");',
+    '',
+  );
+  html = html.replace(
+    '      syncCropControls();',
+    '      drawCropPreview();',
   );
   html = html.replace(
     '      $("saveBtn")?.addEventListener("click", () => saveDraft(false));\n      $("approveBtn")?.addEventListener("click", () => saveDraft(true));',
@@ -148,6 +192,10 @@ const ENHANCED_APP_HTML = (() => {
   html = html.replace(
     '      $("fileInput")?.addEventListener("change", (event) => { const file = event.target.files?.[0]; if (file) { activeImage = { localFile:file, preview_url:URL.createObjectURL(file), alt_text:"" }; render(); } });\n      $("removeImage")?.addEventListener("click", () => { activeImage = null; render(); });',
     '      $("fileInput")?.addEventListener("change", (event) => { const file = event.target.files?.[0]; if (file) { activeImage = { localFile:file, preview_url:URL.createObjectURL(file), alt_text:"" }; render(); } });\n      $("cropBtn")?.addEventListener("click", () => openCropEditor());\n      $("closeCropBtn")?.addEventListener("click", closeCropEditor);\n      $("resetCropBtn")?.addEventListener("click", resetCropEditor);\n      $("applyCropBtn")?.addEventListener("click", applyCropEditor);\n      $("cropZoom")?.addEventListener("input", event => { if (cropState) { cropState.zoom = Number(event.target.value) / 100; drawCropPreview(); } });\n      $("cropX")?.addEventListener("input", event => { if (cropState) { cropState.x = Number(event.target.value); drawCropPreview(); } });\n      $("cropY")?.addEventListener("input", event => { if (cropState) { cropState.y = Number(event.target.value); drawCropPreview(); } });\n      $("removeImage")?.addEventListener("click", () => { closeCropEditor(); activeImage = null; render(); });',
+  );
+  html = html.replace(
+    '      $("removeImage")?.addEventListener("click", () => { closeCropEditor(); activeImage = null; render(); });',
+    '      $("removeImage")?.addEventListener("click", () => { closeCropEditor(); activeImage = null; render(); });\n      bindCropDrag();',
   );
   html = html.replace(
     '    async function saveDraft(approve) {\n      const title = $("postTitle")?.value.trim() || "Sin título";',

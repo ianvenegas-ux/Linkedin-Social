@@ -26,9 +26,12 @@ assert.match(uploadBody, /display_order:\s*1/, "the primary image must keep disp
 
 assert.match(appHtml, /Ajustar encuadre/, "the composer must offer a crop/position editor");
 assert.match(appHtml, /id="cropCanvas"/, "the crop editor must expose a preview canvas");
-assert.match(appHtml, /id="cropZoom"/, "the crop editor must expose a zoom control");
-assert.match(appHtml, /id="cropX"/, "the crop editor must expose horizontal positioning");
-assert.match(appHtml, /id="cropY"/, "the crop editor must expose vertical positioning");
+assert.match(appHtml, /Arrastra la imagen dentro del recuadro/, "the crop editor must explain direct image dragging");
+assert.doesNotMatch(appHtml, /id="cropZoom"/, "the simple crop editor must not expose a zoom slider");
+assert.doesNotMatch(appHtml, /id="cropX"/, "the simple crop editor must not expose a horizontal slider");
+assert.doesNotMatch(appHtml, /id="cropY"/, "the simple crop editor must not expose a vertical slider");
+assert.match(script, /addEventListener\("pointerdown"/, "the crop canvas must start a drag interaction");
+assert.match(script, /addEventListener\("pointermove"/, "the crop canvas must update while dragging");
 assert.match(script, /canvas\.toBlob/, "applying the crop must create a new local image file");
 assert.match(script, /activeImage\s*=\s*\{[\s\S]*localFile:file[\s\S]*preview_url:url/, "applying the crop must replace the active image preview and file");
 
