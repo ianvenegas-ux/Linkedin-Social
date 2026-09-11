@@ -24,7 +24,14 @@
 - No apagar ni eliminar el sitio actual de OpenAI durante la migración. Conservarlo como rollback hasta que Ian apruebe el enlace nuevo.
 - Nunca registrar o incluir en commits contraseñas, JWT, publishable keys, service-role keys, tokens OAuth o archivos `.env.production`.
 - Ejecutar `npm test`, `npm run validate` y `git diff --check` antes de cada commit de implementación.
-- Usar una rama o worktree `feat/lili-social-self-hosted` creada desde `dc80c39d0da0ada6e5dd04692cc06d5a9604951e`.
+- Usar una rama o worktree `feat/lili-social-self-hosted` creada desde `463c4eea69a5b209961d38da2773fa67b37d7b49`, que contiene este handoff. `dc80c39d0da0ada6e5dd04692cc06d5a9604951e` se conserva como baseline funcional que debe permanecer como ancestro.
+- No crear cuentas ni credenciales para Claude, otros agentes o LLM locales, ni asignar `profiles.role = 'admin'` a un agente, durante este cutover.
+
+### Prerrequisito externo para el despliegue
+
+Tasks 1 y 6–8 requieren datos que no están en este repositorio. Antes de ejecutar comandos remotos o modificar DNS, el ejecutor debe disponer y registrar en el runbook estos valores observados: host o IP del servidor, proyecto/checkout exacto del CRM usado como referencia, usuario de despliegue y método de acceso, ruta de despliegue, tipo y ruta de configuración del reverse proxy, y cuenta/proveedor con acceso al DNS de `liliantrade.com`.
+
+Si falta alguno, no adivinar valores ni tocar el servidor: Task 1 sólo documenta la ausencia y Tasks 2–5 pueden continuar localmente. Tasks 6–8 quedan bloqueadas hasta que Ian proporcione el acceso o un proyecto CRM ya configurado donde esos valores puedan observarse.
 
 ---
 
@@ -39,7 +46,8 @@ OpenAI no debe participar en el tráfico, la autenticación ni el despliegue del
 ### Estado confirmado al entregar este handoff
 
 - Repositorio local: `work/lili-social-build`.
-- Commit base validado: `dc80c39d0da0ada6e5dd04692cc06d5a9604951e` (`Align LinkedIn publication state`).
+- Baseline funcional validado: `dc80c39d0da0ada6e5dd04692cc06d5a9604951e` (`Align LinkedIn publication state`).
+- Head del handoff ejecutable: `463c4eea69a5b209961d38da2773fa67b37d7b49` (`docs: add Lili Social self-hosted migration handoff`). La rama de migración parte de este commit y conserva `dc80c39` como ancestro funcional.
 - Sitio actual: `https://lili-social.liliantrade-5085.chatgpt.site/`.
 - OpenAI Sites: versión 18 desplegada correctamente.
 - Supabase: proyecto `qjvaqxjmxydqjrcwuavp`.
@@ -91,7 +99,7 @@ La aplicación no consume la API de OpenAI ni usa un modelo OpenAI en tiempo de 
 ### Arquitectura objetivo
 
 ```text
-Navegador / Claude / LLM local con navegador
+Navegador de usuario autorizado
                   |
                   | HTTPS + login Supabase
                   v
@@ -120,7 +128,7 @@ Navegador / Claude / LLM local con navegador
 - Convertir el scheduler actual, que procesa vencidos al abrir la app, en un cron independiente.
 - Reescribir la UI con React/Vue/Svelte.
 - Convertir `localStorage` a cookies HTTP-only.
-- Diseñar un API/MCP programático para agentes. Para acceso inmediato, Claude o un LLM local puede usar el enlace con navegador y una cuenta Supabase dedicada; no debe reutilizar la contraseña de Ian.
+- Diseñar o habilitar acceso para Claude, otros agentes o un LLM local. Requiere un proyecto de autorización separado, descrito al final de este handoff.
 
 ### Documentación vigente consultada
 
@@ -173,12 +181,12 @@ La revisión del changelog del 11 de septiembre de 2026 confirma cambios recient
 - Read: `supabase/functions/social-publish-linkedin/index.ts`
 
 **Interfaces:**
-- Consumes: el checkout en `dc80c39d0da0ada6e5dd04692cc06d5a9604951e` y acceso de sólo lectura al servidor/stack del CRM.
+- Consumes: el checkout en `463c4eea69a5b209961d38da2773fa67b37d7b49`, con `dc80c39d0da0ada6e5dd04692cc06d5a9604951e` como ancestro funcional, y acceso de sólo lectura al servidor/stack del CRM.
 - Produces: hostname final, host SSH, usuario de despliegue, reverse proxy detectado, ruta de despliegue y mecanismo de certificados registrados en el runbook.
 
 - [ ] **Step 1: Create an isolated worktree**
 
-Usar `superpowers:using-git-worktrees` si está disponible. Crear `feat/lili-social-self-hosted` desde el commit base; no trabajar sobre cambios sin confirmar del usuario.
+Usar `superpowers:using-git-worktrees` si está disponible. Crear `feat/lili-social-self-hosted` desde `463c4eea69a5b209961d38da2773fa67b37d7b49`; no trabajar sobre cambios sin confirmar del usuario.
 
 - [ ] **Step 2: Verify the baseline**
 
@@ -186,12 +194,13 @@ Run:
 
 ```bash
 git rev-parse --verify HEAD
+git merge-base --is-ancestor dc80c39d0da0ada6e5dd04692cc06d5a9604951e HEAD
 npm test
 npm run validate
 git diff --check
 ```
 
-Expected: SHA base `dc80c39d0da0ada6e5dd04692cc06d5a9604951e`, siete pruebas aprobadas, artefacto ESM válido y cero errores de diff.
+Expected: HEAD `463c4eea69a5b209961d38da2773fa67b37d7b49` antes de cambios de implementación, `dc80c39d0da0ada6e5dd04692cc06d5a9604951e` como ancestro, siete pruebas aprobadas, artefacto ESM válido y cero errores de diff.
 
 - [ ] **Step 3: Inspect the CRM deployment without changing it**
 
@@ -207,7 +216,7 @@ Determinar y registrar en el runbook:
 - mecanismo de backups;
 - repositorio Git independiente de OpenAI que usa el CRM.
 
-No instalar un segundo reverse proxy. Si la tarea no tiene acceso al servidor ni conoce el proyecto del CRM, detener sólo este paso y pedir a Ian el proyecto/host exacto; el desarrollo local de Tasks 2–5 puede continuar.
+No instalar un segundo reverse proxy. Si la tarea no tiene host, proyecto CRM, usuario de despliegue, ruta/configuración de proxy y acceso DNS observables, detener sólo este paso y pedir a Ian esos datos concretos; el desarrollo local de Tasks 2–5 puede continuar.
 
 - [ ] **Step 4: Write the runbook baseline**
 
@@ -633,12 +642,14 @@ git commit -m "test: verify OpenAI-independent Supabase proxy"
 - Server-only: configuración del reverse proxy existente.
 
 **Interfaces:**
-- Consumes: patrón exacto descubierto en Task 1 y la imagen/checkout del commit probado.
+- Consumes: patrón exacto descubierto en Task 1, los seis datos del prerrequisito externo y la imagen/checkout del commit probado.
 - Produces: `https://social.liliantrade.com` apuntando a `127.0.0.1:18080` con TLS válido.
 
 - [ ] **Step 1: Establish an independent source/deploy path**
 
 Usar el mismo Git remoto privado o mecanismo de deploy del CRM. No usar `git.chatgpt-team.site` como origen de producción. Copiar la historia Git o el checkout validado al sistema privado y verificar que el SHA desplegado coincide con el último commit de la rama.
+
+No comenzar Task 6 si falta cualquiera de los datos del prerrequisito externo. Registrar el host, usuario, ruta, proxy y proveedor DNS observados antes de crear archivos en el servidor.
 
 - [ ] **Step 2: Install the production files**
 
@@ -769,7 +780,7 @@ Agregar al runbook la configuración no sensible y los resultados de login/reset
 
 **Interfaces:**
 - Consumes: dominio nuevo, Auth configurado y contenedor sano.
-- Produces: aceptación explícita de Ian y un rollback probado.
+- Produces: aceptación explícita de Ian y el fallback manual al sitio anterior probado. Una reversión de tráfico sólo aplica si Ian autoriza explícitamente reutilizar el mismo hostname en vez del hostname nuevo por defecto.
 
 - [ ] **Step 1: Prove there is no OpenAI runtime dependency**
 
@@ -808,22 +819,19 @@ Confirmar:
 - cero secretos/JWT en logs del contenedor y reverse proxy;
 - ausencia de duplicados en `linkedin_posts` para el URN generado.
 
-- [ ] **Step 4: Test rollback**
+- [ ] **Step 4: Test the rollback mode actually chosen**
 
-Antes de anunciar el cutover como completo:
+**Modo A — fallback manual (modo inicial por defecto).** `social.liliantrade.com` es un hostname nuevo y el sitio anterior conserva su hostname `lili-social.liliantrade-5085.chatgpt.site`. No hay tráfico que revertir en DNS/proxy: documentar ambos enlaces, abrir el sitio anterior en incógnito y confirmar que el login sigue disponible. Este es un rollback de acceso para las personas, no una reversión transparente de un mismo dominio.
 
-```bash
-cd /opt/lili-social
-docker compose down
-```
-
-Confirmar que el sitio antiguo de OpenAI todavía funciona. Luego restaurar:
+Para comprobar recuperación del contenedor sin confundirla con rollback, ejecutar por separado:
 
 ```bash
 cd /opt/lili-social
-docker compose up -d
+docker compose restart
 curl --fail --silent https://social.liliantrade.com/healthz
 ```
+
+**Modo B — reversión de tráfico del mismo hostname (sólo si Ian la autoriza por escrito).** Antes del cambio, guardar en el runbook una copia no secreta de la configuración activa del virtual host y de los registros DNS (nombre, tipo, destino y TTL). Para revertir, restaurar exactamente el virtual host anterior o el registro DNS anterior mediante el proveedor observado en Task 1, recargar el proxy según su herramienta nativa y verificar desde una red externa que el hostname vuelve al destino antiguo. Registrar hora, operador y resultado. No usar este modo ni modificar el dominio existente durante la migración por defecto.
 
 - [ ] **Step 5: Obtain explicit acceptance**
 
@@ -847,18 +855,19 @@ git commit -m "docs: complete Lili Social self-hosted cutover"
 
 ---
 
-## Access for Claude or a local LLM
+## Acceso futuro para Claude o un LLM local — fuera de este cutover
 
-La migración elimina OpenAI como guardián del enlace. Cualquier navegador autorizado puede abrir `https://social.liliantrade.com/`.
+El enlace nuevo será independiente de OpenAI, pero esta migración no habilita agentes. La razón es de seguridad: las políticas sociales actuales y `social-publish-linkedin` exigen `profiles.role = 'admin'`. Una cuenta de agente con ese rol podría ejecutar el flujo que publica en LinkedIn; crear una cuenta “dedicada” no reduce ese privilegio.
 
-Para un agente que opere la UI:
+Antes de habilitar cualquier agente, abrir un proyecto y decisión de producto separados con estos requisitos mínimos:
 
-1. Crear una cuenta Supabase dedicada por agente, usando un correo o alias controlado por Lilian Trade.
-2. Asignar únicamente el rol que necesita. Hoy las políticas sociales requieren `profiles.role = 'admin'`; no compartir la cuenta de Ian.
-3. Guardar la contraseña en el secret manager del agente, nunca en prompts ni repositorios.
-4. Revocar la sesión y deshabilitar la cuenta cuando el agente deje de utilizarse.
+1. Definir permisos distintos para editar borradores, solicitar aprobación y publicar; el permiso de publicación debe permanecer humano al inicio.
+2. Implementar esos permisos en una fuente de autorización no modificable por el usuario (por ejemplo una tabla de permisos con RLS o `app_metadata` administrado), nunca `user_metadata`.
+3. Cambiar las políticas y la Edge Function para verificar el permiso específico de cada operación, no el rol genérico `admin`.
+4. Crear una cuenta por agente, guardar sus credenciales sólo en su secret manager, y permitir como máximo crear/editar sus propios borradores hasta que haya una aprobación humana.
+5. Añadir pruebas de regresión RLS y de la Edge Function que demuestren que esa cuenta no puede aprobar ni publicar, y un procedimiento de revocación de sesión/cuenta.
 
-Para acceso programático sin navegador, escribir un plan separado para un API/MCP con scopes (`drafts:read`, `drafts:write`, `publish:request`) y aprobación humana obligatoria antes de publicar. No exponer `SUPABASE_SERVICE_ROLE_KEY` ni el token de LinkedIn a Claude o al LLM local.
+Para acceso programático, diseñar después un API/MCP con scopes como `drafts:read`, `drafts:write` y `publish:request`, sin exponer `SUPABASE_SERVICE_ROLE_KEY` ni tokens de LinkedIn. No crear la cuenta, SQL, políticas ni API de agentes como parte de Tasks 1–8.
 
 ---
 
@@ -873,7 +882,7 @@ La migración está completa sólo si se cumplen todos estos puntos:
 - Una publicación real aprobada por Ian llega a LinkedIn una sola vez.
 - RLS continúa habilitado; `verify_jwt` continúa activo.
 - Ningún secreto quedó en Git, logs, imágenes Docker o este handoff.
-- El sitio anterior permanece disponible como rollback hasta autorización explícita.
+- El sitio anterior permanece disponible como fallback manual hasta autorización explícita. La primera migración usa un hostname nuevo; no hay una reversión de tráfico del hostname anterior salvo autorización explícita de Ian.
 - El runbook registra commit, imagen, servidor, proxy, DNS, resultados y rollback.
 
 ## Suggested prompt for Terra or Luna
@@ -882,8 +891,10 @@ La migración está completa sólo si se cumplen todos estos puntos:
 Continúa Lili Social usando el handoff
 docs/superpowers/plans/2026-09-11-lili-social-self-hosted-migration.md.
 Lee el documento completo antes de cambiar archivos. Ejecuta Tasks 1–8 con TDD y commits pequeños.
+Parte la rama desde `463c4eea69a5b209961d38da2773fa67b37d7b49`; conserva `dc80c39d0da0ada6e5dd04692cc06d5a9604951e` como ancestro funcional.
 Usa el mismo patrón de servidor, reverse proxy, TLS y repositorio privado que el CRM.
 El objetivo es https://social.liliantrade.com/ sin dependencia de OpenAI, manteniendo Supabase administrado.
-No publiques contenido de prueba en LinkedIn, no muevas service-role/tokens al servidor y no apagues el sitio anterior sin aprobación explícita de Ian.
-Si no tienes acceso al servidor o al proyecto del CRM, avanza con Tasks 2–5 y pide únicamente el host/proyecto exacto necesario para Tasks 6–8.
+No publiques contenido de prueba en LinkedIn, no muevas service-role/tokens al servidor, no habilites cuentas de agentes/LLM y no apagues el sitio anterior sin aprobación explícita de Ian.
+Antes de Tasks 6–8 exige host, proyecto CRM, usuario y método de despliegue, ruta, tipo/ruta de reverse proxy y acceso al proveedor DNS. Si falta algo, avanza con Tasks 2–5 y pide esos datos concretos; no los adivines.
+Usa el fallback manual documentado entre el hostname nuevo y el antiguo. Una reversión de proxy/DNS sólo procede si Ian aprueba expresamente reutilizar un mismo hostname.
 ```
