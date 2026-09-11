@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "bash scripts/build.sh",
-    "validate": "node scripts/validate-artifact.mjs"
+    "validate": "node scripts/validate-artifact.mjs",
+    "test": "node worker/workflow.test.mjs && node worker/scheduler.test.mjs && node supabase/functions/social-publish-linkedin/publish-state.test.mjs"
   }
 }
