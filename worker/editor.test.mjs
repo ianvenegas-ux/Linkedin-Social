@@ -9,9 +9,11 @@ const script = appHtml.match(/<script>([\s\S]*)<\/script>/)[1];
 const uploadStart = script.indexOf("async function uploadMaterial");
 const saveStart = script.indexOf("async function saveDraft");
 const publishStart = script.indexOf("async function publish", saveStart);
-assert(uploadStart >= 0 && saveStart > uploadStart && publishStart > saveStart, "editor functions must exist");
+const processJobsStart = script.indexOf("async function processDueJobs", publishStart);
+assert(uploadStart >= 0 && saveStart > uploadStart && publishStart > saveStart && processJobsStart > publishStart, "editor functions must exist");
 const uploadBody = script.slice(uploadStart, saveStart);
 const saveBody = script.slice(saveStart, publishStart);
+const publishBody = script.slice(publishStart, processJobsStart);
 
 assert.match(
   script,
@@ -23,6 +25,9 @@ assert.match(saveBody, /render\(\);\s*const saveStatus[\s\S]*showToast\(/, "succ
 assert.match(uploadBody, /const existing\s*=\s*postMedia\(postId\)\[0\]/, "uploading a replacement image must inspect the existing post media");
 assert.match(uploadBody, /social_media\?id=eq\./, "uploading a replacement image must update the existing media row");
 assert.match(uploadBody, /display_order:\s*1/, "the primary image must keep display order one");
+assert.match(script, /async function publicationImageUrl\(image\)/, "publication must resolve an externally reachable image URL");
+assert.match(publishBody, /publicationImageUrl\(image\)/, "LinkedIn publication must use the external image URL resolver");
+assert.match(script, /PUBLIC_SUPABASE_URL/, "the external image URL resolver must target Supabase storage");
 
 assert.match(appHtml, /Ajustar encuadre/, "the composer must offer a crop/position editor");
 assert.match(appHtml, /id="cropCanvas"/, "the crop editor must expose a preview canvas");

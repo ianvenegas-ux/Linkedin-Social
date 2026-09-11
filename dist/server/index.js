@@ -4,6 +4,10 @@ const APP_HTML = "<!doctype html>\n<html lang=\"es\">\n<head>\n  <meta charset=\
 const ENHANCED_APP_HTML = (() => {
   let html = APP_HTML;
   html = html.replace(
+    '    const ORG_NAME = "Lilian Trade";',
+    '    const ORG_NAME = "Lilian Trade";\n    const PUBLIC_SUPABASE_URL = "https://qjvaqxjmxydqjrcwuavp.supabase.co";',
+  );
+  html = html.replace(
     ".toast { position:fixed;",
     ".save-status { color:var(--green); font-size:12px; font-weight:700; align-self:center; } .save-status.bad { color:var(--red); } .primary:disabled,.secondary:disabled { opacity:.65; cursor:wait; } .crop-panel { margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:10px; background:#f7f9fb; } .crop-head { display:flex; align-items:center; justify-content:space-between; gap:10px; } .crop-head button { padding:7px 10px; } .crop-stage { margin-top:12px; overflow:hidden; border-radius:8px; background:#172b4d; } .crop-stage canvas { display:block; width:100%; height:auto; } .crop-control { margin-top:10px; } .crop-control label { display:flex; justify-content:space-between; margin:0 0 5px; font-size:13px; } .crop-control input { padding:0; border:0; box-shadow:none; } .crop-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; } .toast { position:fixed;",
   );
@@ -30,6 +34,27 @@ const ENHANCED_APP_HTML = (() => {
   html = html.replace(
     /<div id="cropPanel" class="crop-panel hidden" aria-label="Ajustar encuadre">[\s\S]*?<\/div><div class="field-row">/,
     '<div id="cropPanel" class="crop-panel hidden" aria-label="Ajustar encuadre"><div class="crop-head"><strong>Ajustar encuadre</strong><button id="closeCropBtn" class="secondary" type="button">Cerrar</button></div><p class="crop-help">Arrastra la imagen dentro del recuadro para encuadrarla.</p><div class="crop-stage"><canvas id="cropCanvas" width="680" height="400" aria-label="Arrastra la imagen para encuadrarla"></canvas></div><div class="crop-actions"><button id="resetCropBtn" class="secondary" type="button">Restablecer</button><button id="applyCropBtn" class="primary" type="button">Aplicar recorte</button></div></div><div class="field-row">',
+  );
+  html = html.replace(
+    '    function bindComposer() {',
+    `    async function publicationImageUrl(image) {
+      if (!image) return "";
+      const path = image.cached_storage_path || image.source_path || "";
+      if (!path) return "";
+      const signed = await signedUrl(path, image);
+      if (!signed) return "";
+      if (/^https:\\/\\//i.test(signed)) return signed;
+      if (signed.startsWith("/api/")) return PUBLIC_SUPABASE_URL + signed.slice(4);
+      if (signed.startsWith("/storage/")) return PUBLIC_SUPABASE_URL + signed;
+      if (signed.startsWith("/object/")) return PUBLIC_SUPABASE_URL + "/storage/v1" + signed;
+      return PUBLIC_SUPABASE_URL + "/" + signed.replace(/^\\/+/, "");
+    }
+
+    function bindComposer() {`,
+  );
+  html = html.replace(
+    '      const imageUrl = image?.preview_url || await signedUrl(image?.cached_storage_path || image?.source_path);',
+    '      const imageUrl = await publicationImageUrl(image);',
   );
   html = html.replace(
     '    function bindComposer() {',
