@@ -28,6 +28,11 @@ assert.match(uploadBody, /display_order:\s*1/, "the primary image must keep disp
 assert.match(script, /async function publicationImageUrl\(image\)/, "publication must resolve an externally reachable image URL");
 assert.match(publishBody, /publicationImageUrl\(image\)/, "LinkedIn publication must use the external image URL resolver");
 assert.match(script, /PUBLIC_SUPABASE_URL/, "the external image URL resolver must target Supabase storage");
+assert.match(
+  script,
+  /signed\.startsWith\("\/object\/"\)[\s\S]*"\/api\/storage\/v1" \+ signed/,
+  "relative signed Storage URLs must stay behind the Site's Supabase proxy",
+);
 
 assert.match(appHtml, /Ajustar encuadre/, "the composer must offer a crop/position editor");
 assert.match(appHtml, /id="cropCanvas"/, "the crop editor must expose a preview canvas");

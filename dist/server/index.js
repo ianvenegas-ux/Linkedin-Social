@@ -8,6 +8,10 @@ const ENHANCED_APP_HTML = (() => {
     '    const ORG_NAME = "Lilian Trade";\n    const PUBLIC_SUPABASE_URL = "https://qjvaqxjmxydqjrcwuavp.supabase.co";',
   );
   html = html.replace(
+    '        if (signed.startsWith("/storage/")) return "/api" + signed;',
+    '        if (signed.startsWith("/storage/")) return "/api" + signed;\n        if (signed.startsWith("/object/")) return "/api/storage/v1" + signed;',
+  );
+  html = html.replace(
     ".toast { position:fixed;",
     ".save-status { color:var(--green); font-size:12px; font-weight:700; align-self:center; } .save-status.bad { color:var(--red); } .primary:disabled,.secondary:disabled { opacity:.65; cursor:wait; } .crop-panel { margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:10px; background:#f7f9fb; } .crop-head { display:flex; align-items:center; justify-content:space-between; gap:10px; } .crop-head button { padding:7px 10px; } .crop-stage { margin-top:12px; overflow:hidden; border-radius:8px; background:#172b4d; } .crop-stage canvas { display:block; width:100%; height:auto; } .crop-control { margin-top:10px; } .crop-control label { display:flex; justify-content:space-between; margin:0 0 5px; font-size:13px; } .crop-control input { padding:0; border:0; box-shadow:none; } .crop-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; } .toast { position:fixed;",
   );
@@ -283,7 +287,7 @@ export default {
     if (url.pathname === "/api/auth/user") return forward(request, env, "/auth/v1/user");
     if (url.pathname.startsWith("/api/rest/")) return forward(request, env, url.pathname.replace("/api/rest", "/rest"));
     if (url.pathname.startsWith("/api/storage/")) return forward(request, env, url.pathname.replace("/api/storage", "/storage"));
-    if (url.pathname.startsWith("/api/functions/")) return forward(request, env, url.pathname.replace("/api/functions", "/functions"));
+    if (url.pathname.startsWith("/api/functions/")) return forward(request, env, url.pathname.replace("/api/functions", "/functions/v1"));
     return json({ error: "Not found" }, 404);
   },
 };
