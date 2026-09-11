@@ -40,7 +40,8 @@ export default {
       return new Response(APP_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
     }
     if (url.pathname === "/api/auth/login") return forward(request, env, "/auth/v1/token");
-    if (url.pathname === "/api/auth/recover") return forward(request, env, "/auth/v1/recover");\n    if (url.pathname === "/api/auth/user") return forward(request, env, "/auth/v1/user");
+    if (url.pathname === "/api/auth/recover") return forward(request, env, "/auth/v1/recover");
+    if (url.pathname === "/api/auth/user") return forward(request, env, "/auth/v1/user");
     if (url.pathname.startsWith("/api/rest/")) return forward(request, env, url.pathname.replace("/api/rest", "/rest"));
     if (url.pathname.startsWith("/api/storage/")) return forward(request, env, url.pathname.replace("/api/storage", "/storage"));
     if (url.pathname.startsWith("/api/functions/")) return forward(request, env, url.pathname.replace("/api/functions", "/functions"));
