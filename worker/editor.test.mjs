@@ -24,4 +24,12 @@ assert.match(uploadBody, /const existing\s*=\s*postMedia\(postId\)\[0\]/, "uploa
 assert.match(uploadBody, /social_media\?id=eq\./, "uploading a replacement image must update the existing media row");
 assert.match(uploadBody, /display_order:\s*1/, "the primary image must keep display order one");
 
+assert.match(appHtml, /Ajustar encuadre/, "the composer must offer a crop/position editor");
+assert.match(appHtml, /id="cropCanvas"/, "the crop editor must expose a preview canvas");
+assert.match(appHtml, /id="cropZoom"/, "the crop editor must expose a zoom control");
+assert.match(appHtml, /id="cropX"/, "the crop editor must expose horizontal positioning");
+assert.match(appHtml, /id="cropY"/, "the crop editor must expose vertical positioning");
+assert.match(script, /canvas\.toBlob/, "applying the crop must create a new local image file");
+assert.match(script, /activeImage\s*=\s*\{[\s\S]*localFile:file[\s\S]*preview_url:url/, "applying the crop must replace the active image preview and file");
+
 console.log("editor regression test passed");

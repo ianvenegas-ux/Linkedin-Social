@@ -5,15 +5,23 @@ const ENHANCED_APP_HTML = (() => {
   let html = APP_HTML;
   html = html.replace(
     ".toast { position:fixed;",
-    ".save-status { color:var(--green); font-size:12px; font-weight:700; align-self:center; } .save-status.bad { color:var(--red); } .primary:disabled,.secondary:disabled { opacity:.65; cursor:wait; } .toast { position:fixed;",
+    ".save-status { color:var(--green); font-size:12px; font-weight:700; align-self:center; } .save-status.bad { color:var(--red); } .primary:disabled,.secondary:disabled { opacity:.65; cursor:wait; } .crop-panel { margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:10px; background:#f7f9fb; } .crop-head { display:flex; align-items:center; justify-content:space-between; gap:10px; } .crop-head button { padding:7px 10px; } .crop-stage { margin-top:12px; overflow:hidden; border-radius:8px; background:#172b4d; } .crop-stage canvas { display:block; width:100%; height:auto; } .crop-control { margin-top:10px; } .crop-control label { display:flex; justify-content:space-between; margin:0 0 5px; font-size:13px; } .crop-control input { padding:0; border:0; box-shadow:none; } .crop-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; } .toast { position:fixed;",
   );
   html = html.replace(
     "    let recoveryMode = 'closed';",
-    "    let recoveryMode = 'closed';\n    let saveInProgress = false;",
+    "    let recoveryMode = 'closed';\n    let saveInProgress = false;\n    let cropState = null;",
   );
   html = html.replace(
     '<button id="approveBtn" class="primary">Aprobar y publicar</button></div></div>',
     '<button id="approveBtn" class="primary">Aprobar y publicar</button><span id="saveStatus" class="save-status" aria-live="polite"></span></div></div>',
+  );
+  html = html.replace(
+    '<button id="removeImage" class="danger">Quitar</button></div>` : ""}',
+    '<button id="removeImage" class="danger">Quitar</button><button id="cropBtn" class="secondary">Ajustar encuadre</button></div>` : ""}',
+  );
+  html = html.replace(
+    '            <div class="field-row"><div><label for="scheduledAt">Programar para</label>',
+    '            <div id="cropPanel" class="crop-panel hidden" aria-label="Ajustar encuadre"><div class="crop-head"><strong>Ajustar encuadre</strong><button id="closeCropBtn" class="secondary" type="button">Cerrar</button></div><div class="crop-stage"><canvas id="cropCanvas" width="680" height="400"></canvas></div><div class="crop-control"><label for="cropZoom"><span>Zoom</span><span id="cropZoomValue">100%</span></label><input id="cropZoom" type="range" min="100" max="240" value="100"></div><div class="crop-control"><label for="cropX"><span>Horizontal</span><span id="cropXValue">Centro</span></label><input id="cropX" type="range" min="-100" max="100" value="0"></div><div class="crop-control"><label for="cropY"><span>Vertical</span><span id="cropYValue">Centro</span></label><input id="cropY" type="range" min="-100" max="100" value="0"></div><div class="crop-actions"><button id="resetCropBtn" class="secondary" type="button">Restablecer</button><button id="applyCropBtn" class="primary" type="button">Aplicar recorte</button></div></div><div class="field-row"><div><label for="scheduledAt">Programar para</label>',
   );
   html = html.replace(
     '    function bindComposer() {',
@@ -22,6 +30,90 @@ const ENHANCED_APP_HTML = (() => {
       const approveButton = $("approveBtn");
       if (saveButton) { saveButton.disabled = busy; saveButton.textContent = busy ? "Guardando…" : "Guardar borrador"; }
       if (approveButton) approveButton.disabled = busy;
+    }
+
+    function cropLabel(value, axis) {
+      const number = Number(value || 0);
+      if (!number) return "Centro";
+      return axis === "x" ? (number < 0 ? "Izquierda" : "Derecha") : (number < 0 ? "Arriba" : "Abajo");
+    }
+
+    function drawCropPreview() {
+      const state = cropState;
+      const canvas = $("cropCanvas");
+      if (!state || !canvas || !state.imageEl.naturalWidth) return;
+      const ctx = canvas.getContext("2d");
+      const sourceWidth = state.imageEl.naturalWidth;
+      const sourceHeight = state.imageEl.naturalHeight;
+      const aspect = canvas.width / canvas.height;
+      let cropWidth = sourceWidth;
+      let cropHeight = sourceHeight;
+      if (cropWidth / cropHeight > aspect) cropWidth = cropHeight * aspect;
+      else cropHeight = cropWidth / aspect;
+      cropWidth /= state.zoom;
+      cropHeight /= state.zoom;
+      const maxX = Math.max(0, sourceWidth - cropWidth);
+      const maxY = Math.max(0, sourceHeight - cropHeight);
+      const sourceX = maxX * (state.x + 100) / 200;
+      const sourceY = maxY * (state.y + 100) / 200;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(state.imageEl, sourceX, sourceY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+      $("cropZoomValue").textContent = Math.round(state.zoom * 100) + "%";
+      $("cropXValue").textContent = cropLabel(state.x, "x");
+      $("cropYValue").textContent = cropLabel(state.y, "y");
+    }
+
+    function syncCropControls() {
+      if (!cropState) return;
+      $("cropZoom").value = String(Math.round(cropState.zoom * 100));
+      $("cropX").value = String(cropState.x);
+      $("cropY").value = String(cropState.y);
+      drawCropPreview();
+    }
+
+    async function openCropEditor() {
+      const image = activeImage || postMedia(activePost?.id || "")[0];
+      if (!image) return showToast("Selecciona una imagen antes de ajustar el encuadre.", true);
+      const src = image.preview_url || await signedUrl(image.cached_storage_path || image.source_path, image);
+      if (!src) return showToast("Selecciona una imagen local para poder ajustarla.", true);
+      cropState = { image, imageEl: new Image(), zoom: 1, x: 0, y: 0 };
+      const panel = $("cropPanel");
+      if (!panel) return;
+      panel.classList.remove("hidden");
+      cropState.imageEl.onload = drawCropPreview;
+      cropState.imageEl.onerror = () => showToast("No se pudo cargar la imagen para recortarla.", true);
+      cropState.imageEl.src = src;
+      syncCropControls();
+    }
+
+    function closeCropEditor() {
+      cropState = null;
+      $("cropPanel")?.classList.add("hidden");
+    }
+
+    function resetCropEditor() {
+      if (!cropState) return;
+      cropState.zoom = 1;
+      cropState.x = 0;
+      cropState.y = 0;
+      syncCropControls();
+    }
+
+    function applyCropEditor() {
+      const state = cropState;
+      const canvas = $("cropCanvas");
+      if (!state || !canvas || !state.imageEl.naturalWidth) return;
+      const mime = state.image.mime_type || state.image.localFile?.type || "image/jpeg";
+      canvas.toBlob(blob => {
+        if (!blob) return showToast("No se pudo aplicar el recorte.", true);
+        const originalName = state.image.localFile?.name || "imagen-recortada.jpg";
+        const file = new File([blob], originalName, { type: mime });
+        const url = URL.createObjectURL(file);
+        activeImage = { ...state.image, localFile:file, preview_url:url, mime_type:mime, width:canvas.width, height:canvas.height };
+        cropState = null;
+        render();
+        showToast("Encuadre aplicado. Guarda el borrador para conservarlo.");
+      }, mime, .92);
     }
 
     function bindComposer() {`,
@@ -52,6 +144,10 @@ const ENHANCED_APP_HTML = (() => {
     }
 
     async function uploadMaterialOriginal(file, postId, altText) {`,
+  );
+  html = html.replace(
+    '      $("fileInput")?.addEventListener("change", (event) => { const file = event.target.files?.[0]; if (file) { activeImage = { localFile:file, preview_url:URL.createObjectURL(file), alt_text:"" }; render(); } });\n      $("removeImage")?.addEventListener("click", () => { activeImage = null; render(); });',
+    '      $("fileInput")?.addEventListener("change", (event) => { const file = event.target.files?.[0]; if (file) { activeImage = { localFile:file, preview_url:URL.createObjectURL(file), alt_text:"" }; render(); } });\n      $("cropBtn")?.addEventListener("click", () => openCropEditor());\n      $("closeCropBtn")?.addEventListener("click", closeCropEditor);\n      $("resetCropBtn")?.addEventListener("click", resetCropEditor);\n      $("applyCropBtn")?.addEventListener("click", applyCropEditor);\n      $("cropZoom")?.addEventListener("input", event => { if (cropState) { cropState.zoom = Number(event.target.value) / 100; drawCropPreview(); } });\n      $("cropX")?.addEventListener("input", event => { if (cropState) { cropState.x = Number(event.target.value); drawCropPreview(); } });\n      $("cropY")?.addEventListener("input", event => { if (cropState) { cropState.y = Number(event.target.value); drawCropPreview(); } });\n      $("removeImage")?.addEventListener("click", () => { closeCropEditor(); activeImage = null; render(); });',
   );
   html = html.replace(
     '    async function saveDraft(approve) {\n      const title = $("postTitle")?.value.trim() || "Sin título";',
