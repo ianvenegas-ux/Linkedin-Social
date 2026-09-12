@@ -7,6 +7,6 @@
     "validate": "node scripts/validate-artifact.mjs",
     "build:pages": "node scripts/build-pages.mjs",
     "validate:pages": "node scripts/validate-pages-artifact.mjs",
-    "test": "node scripts/pages-build.test.mjs && node worker/workflow.test.mjs && node worker/scheduler.test.mjs && node worker/auth.test.mjs && node worker/editor.test.mjs && node worker/routing.test.mjs && node supabase/functions/social-publish-linkedin/publish-state.test.mjs && node supabase/functions/social-publish-linkedin/edge-function.test.mjs"
+    "test": "node scripts/pages-build.test.mjs && node worker/workflow.test.mjs && node worker/scheduler.test.mjs && node worker/auth.test.mjs && node worker/editor.test.mjs && node worker/draft-buffer.test.mjs && node worker/routing.test.mjs && node supabase/functions/social-publish-linkedin/publish-state.test.mjs && node supabase/functions/social-publish-linkedin/edge-function.test.mjs"
   }
 }

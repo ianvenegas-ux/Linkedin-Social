@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { renderAppHtml } from "../worker/index.js";
 
+const CUSTOM_DOMAIN = "social.liliantrade.com";
+
 function requiredHttpsUrl(value) {
   const url = new URL(value || "");
   if (url.protocol !== "https:") throw new Error("SUPABASE_URL must use HTTPS");
@@ -30,6 +32,10 @@ export async function buildPages({
     }),
     "utf8",
   );
+  // GitHub Pages reads this file (bare hostname, no scheme/path) at the artifact
+  // root on every deploy to configure the custom domain; omitting it resets Pages
+  // back to the default *.github.io URL on the next push.
+  await fs.writeFile(path.join(resolvedOutputDir, "CNAME"), CUSTOM_DOMAIN + "\n", "utf8");
   return resolvedOutputDir;
 }
 

@@ -19,6 +19,12 @@ try {
   assert.match(html, /LILI_TRANSPORT = "direct"/);
   assert.doesNotMatch(html, /__LILI_(SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|TRANSPORT)__/);
 
+  // GitHub Pages reads a bare CNAME file (no scheme, no trailing slash) at the
+  // artifact root to serve the custom domain; without it every deploy resets
+  // Pages back to the default *.github.io URL.
+  const cname = await fs.readFile(path.join(outputDir, "CNAME"), "utf8");
+  assert.equal(cname.trim(), "social.liliantrade.com");
+
   const workflow = await fs.readFile(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8");
   assert.match(workflow, /actions\/configure-pages@v5/);
   assert.match(workflow, /actions\/upload-pages-artifact@v3/);

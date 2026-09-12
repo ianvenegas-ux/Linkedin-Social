@@ -29,4 +29,10 @@ for (const fragment of blockedFragments) {
   if (html.includes(fragment)) throw new Error(`Pages artifact contains prohibited ${fragment}`);
 }
 
-console.log(`Validated ${artifactPath}`);
+const cnamePath = path.resolve("dist-pages/CNAME");
+const cname = (await fs.readFile(cnamePath, "utf8")).trim();
+if (cname !== "social.liliantrade.com") {
+  throw new Error(`CNAME file must contain exactly "social.liliantrade.com", found "${cname}"`);
+}
+
+console.log(`Validated ${artifactPath} and ${cnamePath}`);
