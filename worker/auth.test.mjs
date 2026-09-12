@@ -36,4 +36,12 @@ assert.match(directHtml, /"\/auth\/v1\/token"/);
 assert.match(directHtml, /"\/auth\/v1\/recover"/);
 assert.match(directHtml, /"\/auth\/v1\/user"/);
 assert.match(directHtml, /redirect_to:\s*applicationRoot\(\)/);
+// GoTrue resolves redirect_to from the query string (or a redirect_to header) and
+// never from a JSON body. Sending it only in the body makes GoTrue fall back to the
+// project Site URL, which on this shared project points at the CRM.
+assert.match(
+  directHtml,
+  /fetch\(endpoint\("\/api\/auth\/recover"\) \+ "\?redirect_to=" \+ encodeURIComponent\(applicationRoot\(\)\)/,
+  "password recovery must send redirect_to as a query parameter, not only in the JSON body",
+);
 console.log("auth recovery regression test passed");

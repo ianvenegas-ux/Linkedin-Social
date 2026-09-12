@@ -47,7 +47,7 @@ const ENHANCED_APP_TEMPLATE = (() => {
   );
   html = html.replace(
     'const response = await fetch("/api/auth/recover", {\n        method: "POST",\n        cache: "no-store",\n        credentials: "same-origin",\n        headers: { "Content-Type": "application/json" },\n        body: JSON.stringify({\n          email,\n          redirect_to: window.location.origin + "/"\n        })\n      });',
-    'const response = await fetch(endpoint("/api/auth/recover"), authRequestOptions({\n        method: "POST",\n        cache: "no-store",\n        headers: requestHeaders({ "Content-Type": "application/json", ...(LILI_TRANSPORT === "direct" ? { Authorization: "Bearer " + SUPABASE_PUBLISHABLE_KEY } : {}) }),\n        body: JSON.stringify({\n          email,\n          redirect_to: applicationRoot()\n        })\n      }));',
+    'const response = await fetch(endpoint("/api/auth/recover") + "?redirect_to=" + encodeURIComponent(applicationRoot()), authRequestOptions({\n        method: "POST",\n        cache: "no-store",\n        headers: requestHeaders({ "Content-Type": "application/json", ...(LILI_TRANSPORT === "direct" ? { Authorization: "Bearer " + SUPABASE_PUBLISHABLE_KEY } : {}) }),\n        body: JSON.stringify({\n          email,\n          redirect_to: applicationRoot()\n        })\n      }));',
   );
   html = html.replace(
     'const response = await fetch("/api/auth/user", {\n        method: "PUT",\n        headers: {\n          Authorization: "Bearer " + accessToken,\n          "Content-Type": "application/json"\n        },',
