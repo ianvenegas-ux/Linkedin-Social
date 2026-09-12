@@ -23,6 +23,7 @@ try {
   assert.match(workflow, /actions\/configure-pages@v5/);
   assert.match(workflow, /actions\/upload-pages-artifact@v3/);
   assert.match(workflow, /actions\/deploy-pages@v4/);
+  assert.match(workflow, /branches:\s*\[main\]/);
   assert.match(workflow, /SUPABASE_URL:\s*\$\{\{ secrets\.SUPABASE_URL \}\}/);
   assert.match(workflow, /SUPABASE_PUBLISHABLE_KEY:\s*\$\{\{ secrets\.SUPABASE_PUBLISHABLE_KEY \}\}/);
   assert.doesNotMatch(workflow, /SUPABASE_SERVICE_ROLE_KEY|LINKEDIN_/);
