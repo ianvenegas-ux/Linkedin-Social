@@ -1,6 +1,22 @@
 import assert from "node:assert/strict";
 
-const { default: worker } = await import("./index.js");
+const { default: worker, renderAppHtml } = await import("./index.js");
+
+const directHtml = renderAppHtml({
+  supabaseUrl: "https://project.supabase.co",
+  publishableKey: "test-publishable-key",
+  transport: "direct",
+});
+
+assert.match(directHtml, /"\/api\/rest"\s*:\s*"\/rest"/);
+assert.match(directHtml, /"\/api\/storage"\s*:\s*"\/storage"/);
+assert.match(directHtml, /"\/api\/functions"\s*:\s*"\/functions\/v1"/);
+assert.match(directHtml, /apikey:\s*SUPABASE_PUBLISHABLE_KEY/);
+assert.match(
+  directHtml,
+  /apiPath\.startsWith\(prefix \+ "\?"\)/,
+  "direct Auth login routes must keep query strings while matching their exact proxy prefix",
+);
 
 const originalFetch = globalThis.fetch;
 let forwardedUrl = "";
