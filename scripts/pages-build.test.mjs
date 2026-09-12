@@ -18,6 +18,14 @@ try {
   assert.match(html, /test-publishable-key/);
   assert.match(html, /LILI_TRANSPORT = "direct"/);
   assert.doesNotMatch(html, /__LILI_(SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|TRANSPORT)__/);
+
+  const workflow = await fs.readFile(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8");
+  assert.match(workflow, /actions\/configure-pages@v5/);
+  assert.match(workflow, /actions\/upload-pages-artifact@v3/);
+  assert.match(workflow, /actions\/deploy-pages@v4/);
+  assert.match(workflow, /SUPABASE_URL:\s*\$\{\{ secrets\.SUPABASE_URL \}\}/);
+  assert.match(workflow, /SUPABASE_PUBLISHABLE_KEY:\s*\$\{\{ secrets\.SUPABASE_PUBLISHABLE_KEY \}\}/);
+  assert.doesNotMatch(workflow, /SUPABASE_SERVICE_ROLE_KEY|LINKEDIN_/);
 } finally {
   if (outputDir) await fs.rm(outputDir, { recursive: true, force: true });
 }
