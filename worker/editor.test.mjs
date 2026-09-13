@@ -45,4 +45,24 @@ assert.match(script, /addEventListener\("pointermove"/, "the crop canvas must up
 assert.match(script, /canvas\.toBlob/, "applying the crop must create a new local image file");
 assert.match(script, /activeImage\s*=\s*\{[\s\S]*localFile:file[\s\S]*preview_url:url/, "applying the crop must replace the active image preview and file");
 
+// Image transforms. The Supabase project is in us-west-2 and the team works from
+// China, so the composer must never pull a full-size phone original just to fill a
+// preview card. Publication is the opposite: LinkedIn gets the untouched file.
+const cropStart = script.indexOf("async function openCropEditor");
+const cropBody = script.slice(cropStart, script.indexOf("function closeCropEditor", cropStart));
+const hydrateStart = script.indexOf("async function hydrateImage");
+const hydrateBody = script.slice(hydrateStart, script.indexOf("const DRAFT_BUFFER_KEY", hydrateStart));
+const publicationStart = script.indexOf("async function publicationImageUrl");
+const publicationBody = script.slice(publicationStart, script.indexOf("function setSaveBusy", publicationStart));
+assert(cropStart >= 0 && hydrateStart >= 0 && publicationStart >= 0, "image helpers must exist");
+
+assert.match(script, /async function signedUrl\(path, mediaItem = null, transform = null\)/, "signedUrl must accept an optional image transform");
+assert.match(script, /body: JSON\.stringify\(transform \?/, "signedUrl must forward the transform to the sign request");
+assert.match(script, /const PREVIEW_TRANSFORM = \{ width: \d+/, "the composer must define a lightweight preview transform");
+assert.match(script, /const CROP_TRANSFORM = \{ width: \d+/, "the crop editor must define its own transform");
+assert.match(hydrateBody, /signedUrl\([^)]*PREVIEW_TRANSFORM\)/, "the editor thumbnail and LinkedIn preview must request the resized image");
+assert.match(cropBody, /signedUrl\([^)]*CROP_TRANSFORM\)/, "the crop editor must request its own resized image");
+assert.doesNotMatch(publicationBody, /TRANSFORM/, "LinkedIn must receive the untouched original, never a transformed copy");
+assert.match(script, /signed\.startsWith\("\/render\/"\)/, "transformed signed URLs come back under /render/ and must be resolved too");
+
 console.log("editor regression test passed");
