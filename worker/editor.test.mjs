@@ -65,4 +65,25 @@ assert.match(cropBody, /signedUrl\([^)]*CROP_TRANSFORM\)/, "the crop editor must
 assert.doesNotMatch(publicationBody, /TRANSFORM/, "LinkedIn must receive the untouched original, never a transformed copy");
 assert.match(script, /signed\.startsWith\("\/render\/"\)/, "transformed signed URLs come back under /render/ and must be resolved too");
 
+// Multi-account publishing (the LinkedIn org page and, once connected, a
+// personal profile) - the composer must let the user pick which account a
+// post goes out as, instead of silently always picking "the org account, or
+// whatever accounts[0] happens to be" (which could even resolve to a brand
+// new, not-yet-authorized personal account depending on fetch order).
+const renderComposerStart = script.indexOf("function renderComposer");
+const renderComposerBody = script.slice(renderComposerStart, script.indexOf("function bindComposer", renderComposerStart));
+assert(renderComposerStart >= 0, "renderComposer must exist");
+assert.match(renderComposerBody, /id="accountSelect"/, "the composer must offer an account selector");
+assert.match(renderComposerBody, /const selectedAccountId = p\.social_account_id \|\| accounts\.find\(a => a\.enabled\)\?\.id/, "the account selector must default to the post's own account, then any connected one");
+assert.match(renderComposerBody, /\$\{a\.enabled \? "" : " disabled"\}/, "an unauthorized account must not be selectable in the dropdown");
+assert.match(renderComposerBody, /const disconnectedAccount = accounts\.find\(a => !a\.enabled\)/, "the composer must detect any account still pending authorization");
+assert.match(renderComposerBody, /linkedin-oauth-start\?social_account_id=/, "the composer must offer a direct link to connect a pending account");
+assert.match(renderComposerBody, /FUNCTION_BASE \+ "\/linkedin-oauth-start/, "the connect link must go through the app's own endpoint resolver, not a hardcoded URL");
+
+assert.match(saveBody, /const selectedAccountId = \$\("accountSelect"\)\?\.value \|\| ""/, "saving must read the chosen account from the selector");
+assert.match(saveBody, /accounts\.find\(a => a\.id === selectedAccountId\) \|\| accounts\.find\(a => a\.enabled\) \|\| accounts\[0\]/, "saving must publish as the selected account, not always the same fixed one");
+assert.doesNotMatch(saveBody, /a\.display_name === ORG_NAME/, "the account lookup must no longer be hardcoded to the organization page");
+const patchBranch = saveBody.slice(saveBody.indexOf("if (activePost?.id)"), saveBody.indexOf("} else {"));
+assert.match(patchBranch, /social_account_id: account\.id/, "editing an existing draft must be able to move it to a different account, not just create-time");
+
 console.log("editor regression test passed");

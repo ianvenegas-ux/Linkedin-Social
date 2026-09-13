@@ -1,6 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPublishedPostUpdate } from "./publish-state.mjs";
 
+// The Lilian Trade organization page - still the only organization account
+// that exists, so this stays a fixed identity check. A `social_accounts` row
+// with account_type="member" (e.g. someone's personal profile) has no
+// organization_id at all; its identity comes from its own linkedin_connections
+// row instead (account_urn, resolved at OAuth time as urn:li:person:{sub}).
 const ORG_ID = "71060641";
 const ORG_URN = `urn:li:organization:${ORG_ID}`;
 const LINKEDIN_VERSION = Deno.env.get("LINKEDIN_VERSION")?.trim() || "202608";
@@ -69,11 +74,11 @@ async function fetchImage(sourceUrl: string) {
   }
 }
 
-async function initializeImageUpload(token: string) {
+async function initializeImageUpload(token: string, owner: string) {
   const response = await fetch("https://api.linkedin.com/rest/images?action=initializeUpload", {
     method: "POST",
     headers: linkedinHeaders(token),
-    body: JSON.stringify({ initializeUploadRequest: { owner: ORG_URN } }),
+    body: JSON.stringify({ initializeUploadRequest: { owner } }),
   });
   const data = await response.json().catch(() => null);
   if (!response.ok || !data?.value?.uploadUrl || !data?.value?.image) {
@@ -91,9 +96,9 @@ async function uploadImage(token: string, uploadUrl: string, bytes: Uint8Array, 
   if (!response.ok) throw new Error(`LinkedIn image upload failed (HTTP ${response.status})`);
 }
 
-async function createPost(token: string, commentary: string, imageUrn: string | null, altText: string | null) {
+async function createPost(token: string, commentary: string, imageUrn: string | null, altText: string | null, author: string) {
   const post: Record<string, unknown> = {
-    author: ORG_URN,
+    author,
     commentary,
     visibility: "PUBLIC",
     distribution: {
@@ -139,6 +144,19 @@ async function requireAdmin(req: Request, supabaseUrl: string, publicKey: string
     .maybeSingle();
   if (profileError || profile?.role !== "admin") throw new Error("Administrator permission is required");
   return user.id;
+}
+
+// account_type="organization" always posts as the Lilian Trade page (ORG_URN).
+// account_type="member" posts as whoever connected that row personally - their
+// identity lives on the connection itself (account_urn), never hardcoded,
+// because unlike the single organization there can be more than one member
+// account over time.
+function requiredScopeFor(accountType: string) {
+  return accountType === "member" ? "w_member_social" : "w_organization_social";
+}
+
+function scopeIncludes(scope: string, wanted: string) {
+  return new RegExp(`(^|[,\\s])${wanted}([,\\s]|$)`).test(scope);
 }
 
 Deno.serve(async (req: Request) => {
@@ -190,25 +208,36 @@ Deno.serve(async (req: Request) => {
 
     const { data: account, error: accountError } = await admin
       .from("social_accounts")
-      .select("id,enabled,organization_id,connection_id")
+      .select("id,enabled,account_type,organization_id,connection_id")
       .eq("id", post.social_account_id)
       .maybeSingle();
-    if (accountError || !account || account.organization_id !== ORG_ID) {
+    if (accountError || !account) {
+      return errorResponse("The post's LinkedIn account could not be found", 409);
+    }
+    if (account.account_type === "organization" && account.organization_id !== ORG_ID) {
       return errorResponse("The post is not bound to the Lilian Trade organization", 409);
     }
+    if (account.account_type !== "organization" && account.account_type !== "member") {
+      return errorResponse("Unsupported LinkedIn account type", 409);
+    }
     if (!account.enabled) {
-      return errorResponse("Lilian Trade organization publishing is disabled until OAuth and organization permissions are verified", 409);
+      return errorResponse("This LinkedIn account is disabled until it is (re)connected with the right permission", 409);
     }
 
     const { data: connection, error: connectionError } = await admin
       .from("linkedin_connections")
-      .select("access_token,scope")
+      .select("access_token,scope,account_urn")
       .eq("id", account.connection_id)
       .maybeSingle();
     if (connectionError || !connection?.access_token) return errorResponse("LinkedIn connection is unavailable", 409);
-    const scope = String(connection.scope || "");
-    if (!/(^|[,\\s])w_organization_social([,\\s]|$)/.test(scope)) {
-      return errorResponse("LinkedIn organization publishing permission is missing", 409);
+    const requiredScope = requiredScopeFor(account.account_type);
+    if (!scopeIncludes(String(connection.scope || ""), requiredScope)) {
+      return errorResponse(`LinkedIn permission is missing for this account (needs ${requiredScope})`, 409);
+    }
+
+    const authorUrn = account.account_type === "member" ? connection.account_urn : ORG_URN;
+    if (!authorUrn) {
+      return errorResponse("This LinkedIn account has no identity on file yet - reconnect it", 409);
     }
 
     const { count: mediaCount } = await admin
@@ -233,7 +262,7 @@ Deno.serve(async (req: Request) => {
     try {
       if (imageUrl) {
         const image = await fetchImage(imageUrl);
-        const upload = await initializeImageUpload(connection.access_token);
+        const upload = await initializeImageUpload(connection.access_token, authorUrn);
         await uploadImage(connection.access_token, upload.uploadUrl, image.bytes, image.contentType);
         imageUrn = upload.imageUrn;
       }
@@ -243,6 +272,7 @@ Deno.serve(async (req: Request) => {
         post.body,
         imageUrn,
         typeof input?.alt_text === "string" ? input.alt_text.trim() : null,
+        authorUrn,
       );
       const publishedUrl = `https://www.linkedin.com/feed/update/${encodeURIComponent(postUrn)}`;
       const publishedAt = new Date().toISOString();
