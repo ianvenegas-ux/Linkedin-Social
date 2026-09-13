@@ -57,4 +57,18 @@ assert.match(script, /const showAbove=spaceBelow<previewHeight\+margin&&rect\.to
 assert.match(script, /const previewHeight=box\.offsetHeight/, "the popover's real height must be measured (not guessed) before it is positioned");
 assert.match(script, /box\.style\.visibility="hidden"/, "the popover must be measured before paint, not flash at the wrong position first");
 
+// Month navigation: the calendar defaults to the current month but must let
+// the user step to any other month (at least the next couple of years), and
+// the real, actual today - not just "a day in whatever month is shown" - must
+// be visually marked.
+assert.match(script, /let calendarViewDate=null;/, "the viewed month must persist across re-renders, separate from today's real date");
+assert.match(calendarBody, /if\(!calendarViewDate\)calendarViewDate=new Date\(\);/, "the calendar must default to the current month on first load");
+assert.match(calendarBody, /const today=new Date\(\);/, "renderCalendar must track the real current date separately from the viewed month");
+assert.match(calendarBody, /const isToday=date\.toDateString\(\)===today\.toDateString\(\);/, "each day cell must know whether it is the real, actual today");
+assert.match(calendarBody, /day\$\{isToday\?" today":""\}/, "today must get a distinguishing class appended to the base day class, and no other day should");
+assert.match(script, /\$\("calPrev"\)\.addEventListener\("click",\(\)=>\{calendarViewDate=new Date\(now\.getFullYear\(\),now\.getMonth\(\)-1,1\);renderCalendar\(\);\}\);/, "the previous-month button must step exactly one month back and re-render");
+assert.match(script, /\$\("calNext"\)\.addEventListener\("click",\(\)=>\{calendarViewDate=new Date\(now\.getFullYear\(\),now\.getMonth\(\)\+1,1\);renderCalendar\(\);\}\);/, "the next-month button must step exactly one month forward and re-render");
+assert.match(script, /\$\("calToday"\)\.addEventListener\("click",\(\)=>\{calendarViewDate=new Date\(\);renderCalendar\(\);\}\);/, "the Hoy button must snap back to the real current month");
+assert.match(calendarBody, /MONTHS\[now\.getMonth\(\)\]\}\s*\$\{now\.getFullYear\(\)\}/, "the header must show which month/year is currently being viewed");
+
 console.log("calendar regression test passed");
