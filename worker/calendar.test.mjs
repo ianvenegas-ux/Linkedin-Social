@@ -36,4 +36,25 @@ assert.match(script, /className="event-preview"/, "the hover preview must be sty
 assert.match(script, /\(post\.body\|\|""\)\.slice\(0,160\)/, "the hover preview body must be a short snippet, not the full post text");
 assert.match(script, /\.textContent=post\.internal_title/, "the hover preview must use textContent, not innerHTML, so a post title can never inject markup");
 
+// A signed preview URL must never be re-fetched for the same media item -
+// every hover repaying the sign+download round trip is what made repeats feel
+// slow on top of the underlying cross-Pacific latency.
+assert.match(script, /const mediaPreviewCache=new Map\(\)/, "resolved preview URLs must be cached, not re-fetched on every hover");
+assert.match(script, /function resolvePreviewSrc\(media0\)/, "preview URL resolution must be its own cacheable helper");
+assert.match(script, /mediaPreviewCache\.set\(media0\.id,promise\)/, "concurrent hovers on the same event must share one in-flight request, not fire duplicates");
+assert.match(script, /const src=await resolvePreviewSrc\(media0\)/, "showCalendarPreview must go through the cache, not call signedUrl directly");
+
+// The first hover on each event should already be fast: the calendar warms
+// the cache for every post in the visible month as soon as it renders.
+assert.match(script, /function prefetchCalendarPreviews\(monthPosts\)/, "the calendar must prefetch previews for the visible month");
+assert.match(calendarBody, /prefetchCalendarPreviews\(posts\.filter\(/, "renderCalendar must trigger the prefetch for its own month's posts");
+
+// Vertical placement must flip above the event when there is not enough room
+// below in the VIEWPORT (not the full scrollable page) - events on the last
+// rows of the month must not push the popover off-screen.
+assert.match(script, /const spaceBelow=window\.innerHeight-rect\.bottom/, "flip decision must be based on viewport space below the event");
+assert.match(script, /const showAbove=spaceBelow<previewHeight\+margin&&rect\.top>spaceBelow/, "the popover must flip above the event when space below is insufficient and space above is better");
+assert.match(script, /const previewHeight=box\.offsetHeight/, "the popover's real height must be measured (not guessed) before it is positioned");
+assert.match(script, /box\.style\.visibility="hidden"/, "the popover must be measured before paint, not flash at the wrong position first");
+
 console.log("calendar regression test passed");
