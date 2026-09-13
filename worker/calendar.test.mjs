@@ -71,4 +71,15 @@ assert.match(script, /\$\("calNext"\)\.addEventListener\("click",\(\)=>\{calenda
 assert.match(script, /\$\("calToday"\)\.addEventListener\("click",\(\)=>\{calendarViewDate=new Date\(\);renderCalendar\(\);\}\);/, "the Hoy button must snap back to the real current month");
 assert.match(calendarBody, /MONTHS\[now\.getMonth\(\)\]\}\s*\$\{now\.getFullYear\(\)\}/, "the header must show which month/year is currently being viewed");
 
+// The preview popover is appended to document.body (it has to escape the day
+// cell's own stacking/overflow), which lives OUTSIDE #mainContent - so leaving
+// the calendar for another view (which only ever replaces #mainContent) can
+// never clean it up on its own, and removing the hovered event from the DOM
+// (e.g. by clicking it) does not fire mouseleave either. It must be cleared
+// unconditionally by the one function every view render goes through.
+const renderStart = script.indexOf("function render() {");
+const renderBody = script.slice(renderStart, script.indexOf("function renderComposer", renderStart));
+assert(renderStart >= 0, "render() must exist");
+assert.match(renderBody, /function render\(\) \{\s*hideCalendarPreview\(\);/, "render() must clear any stray calendar preview before drawing whatever view is next, regardless of how the user left the calendar");
+
 console.log("calendar regression test passed");
