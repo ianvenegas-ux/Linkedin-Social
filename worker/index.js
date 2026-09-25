@@ -288,6 +288,50 @@ const ENHANCED_APP_TEMPLATE = (() => {
     '        await loadData();\n        render();\n      } catch (error) {\n        showToast(error.message, true);\n      }\n    }',
     '        await loadData();\n        render();\n        const saveStatus = $("saveStatus");\n        if (saveStatus) saveStatus.textContent = approve ? "Cambios guardados" : "Borrador guardado";\n        if (!approve || scheduled) showToast(approve ? "Aprobado y guardado en el calendario." : (scheduled ? "Borrador guardado; apruébalo para activarlo en el calendario." : "Borrador guardado."));\n      } catch (error) {\n        const saveStatus = $("saveStatus");\n        if (saveStatus) { saveStatus.textContent = "No se pudo guardar"; saveStatus.className = "save-status bad"; }\n        showToast(error.message, true);\n      } finally {\n        saveInProgress = false;\n        setSaveBusy(false);\n      }\n    }',
   );
+  // Dark mode: variables mirror the light palette, applied either by a saved
+  // manual choice (data-theme attribute, toggled from the topbar) or by the
+  // OS preference when nothing was chosen yet.
+  html = html.replace(
+    ':root { --blue:#0a66c2; --blue-dark:#004182; --ink:#172b4d; --muted:#6b778c; --line:#dfe3e8; --bg:#f4f6f8; --card:#fff; --green:#16834b; --amber:#a15c00; --red:#b42318; }',
+    ':root { --blue:#0a66c2; --blue-dark:#004182; --ink:#172b4d; --muted:#6b778c; --line:#dfe3e8; --bg:#f4f6f8; --card:#fff; --green:#16834b; --amber:#a15c00; --red:#b42318; } :root[data-theme="dark"] { --blue:#4c9aff; --blue-dark:#8ab6ff; --ink:#e6edf3; --muted:#9aa7b4; --line:#2d3742; --bg:#0f151b; --card:#161d25; --green:#3fb87a; --amber:#d69a3e; --red:#ef6b63; } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --blue:#4c9aff; --blue-dark:#8ab6ff; --ink:#e6edf3; --muted:#9aa7b4; --line:#2d3742; --bg:#0f151b; --card:#161d25; --green:#3fb87a; --amber:#d69a3e; --red:#ef6b63; } }',
+  );
+  html = html.replace(
+    '.toast { position:fixed;',
+    '.theme-toggle { border:1px solid var(--line); background:transparent; color:var(--muted); border-radius:8px; width:34px; height:34px; display:grid; place-items:center; font-size:15px; flex:0 0 auto; } .theme-toggle:hover { background:#0a66c214; color:var(--blue-dark); } body { transition:background-color .15s ease,color .15s ease; } :root[data-theme="dark"] .login { background:linear-gradient(140deg,#0c1117 0%,#10161d 52%,#0c131a 100%); } :root[data-theme="dark"] .calendar, :root[data-theme="dark"] .linkedin-card { background:var(--card); border-color:var(--line); } :root[data-theme="dark"] .avatar { background:#1f3a57; color:#bcdcff; } :root[data-theme="dark"] .drop, :root[data-theme="dark"] .preview-wrap, :root[data-theme="dark"] .crop-panel { background:#111820; } :root[data-theme="dark"] .material img, :root[data-theme="dark"] .drop-icon { background:#1c2530; } :root[data-theme="dark"] .login-card, :root[data-theme="dark"] .topbar, :root[data-theme="dark"] aside { background:var(--card); } :root[data-theme="dark"] input, :root[data-theme="dark"] textarea { background:#0f151b; border-color:var(--line); color:var(--ink); } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .login { background:linear-gradient(140deg,#0c1117 0%,#10161d 52%,#0c131a 100%); } :root:not([data-theme="light"]) .calendar, :root:not([data-theme="light"]) .linkedin-card { background:var(--card); border-color:var(--line); } :root:not([data-theme="light"]) .avatar { background:#1f3a57; color:#bcdcff; } :root:not([data-theme="light"]) .drop, :root:not([data-theme="light"]) .preview-wrap, :root:not([data-theme="light"]) .crop-panel { background:#111820; } :root:not([data-theme="light"]) .material img, :root:not([data-theme="light"]) .drop-icon { background:#1c2530; } :root:not([data-theme="light"]) .login-card, :root:not([data-theme="light"]) .topbar, :root:not([data-theme="light"]) aside { background:var(--card); } :root:not([data-theme="light"]) input, :root:not([data-theme="light"]) textarea { background:#0f151b; border-color:var(--line); color:var(--ink); } }\n    .toast { position:fixed;',
+  );
+  html = html.replace(
+    'const PUBLIC_SUPABASE_URL = SUPABASE_URL;',
+    'const PUBLIC_SUPABASE_URL = SUPABASE_URL;\n    const THEME_KEY = "lili_social_theme";\n    function applyTheme(theme) { if (theme === "dark" || theme === "light") document.documentElement.setAttribute("data-theme", theme); else document.documentElement.removeAttribute("data-theme"); }\n    function currentTheme() { try { return localStorage.getItem(THEME_KEY) || ""; } catch { return ""; } }\n    applyTheme(currentTheme());\n    function toggleTheme() { const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches; const active = currentTheme() || (prefersDark ? "dark" : "light"); const next = active === "dark" ? "light" : "dark"; try { localStorage.setItem(THEME_KEY, next); } catch {} applyTheme(next); }',
+  );
+  html = html.replace(
+    '<div class="account"><span id="accountEmail"></span><span id="avatar" class="avatar">IV</span><button id="logoutBtn" class="secondary">Salir</button></div>',
+    '<div class="account"><button id="themeToggle" class="theme-toggle" type="button" title="Cambiar tema" aria-label="Cambiar tema">◐</button><span id="accountEmail"></span><span id="avatar" class="avatar">IV</span><button id="logoutBtn" class="secondary">Salir</button></div>',
+  );
+  html = html.replace(
+    '$("logoutBtn").addEventListener("click", () => {\n      session = null;\n      user = null;\n      localStorage.removeItem(SESSION_KEY);\n      render();\n    });',
+    '$("logoutBtn").addEventListener("click", () => {\n      session = null;\n      user = null;\n      localStorage.removeItem(SESSION_KEY);\n      render();\n    });\n    $("themeToggle")?.addEventListener("click", toggleTheme);',
+  );
+
+  // "Publicar ahora" (immediate publish) as a distinct action from "Aprobar y
+  // programar" (schedule for later via social_publication_jobs). Previously a
+  // single "Aprobar y publicar" button silently branched on whether a date had
+  // been picked, so immediate publication could be triggered by accident.
+  html = html.replace(
+    '<button id="approveBtn" class="primary">Aprobar y publicar</button><span id="saveStatus" class="save-status" aria-live="polite"></span></div></div>',
+    '<button id="approveBtn" class="primary">Aprobar y programar</button><button id="publishNowBtn" class="secondary">Publicar ahora</button><span id="saveStatus" class="save-status" aria-live="polite"></span></div></div>',
+  );
+  html = html.replace(
+    '      const saveButton = $("saveBtn");\n      const approveButton = $("approveBtn");\n      if (saveButton) { saveButton.disabled = busy; saveButton.textContent = busy ? "Guardando…" : "Guardar borrador"; }\n      if (approveButton) approveButton.disabled = busy;',
+    '      const saveButton = $("saveBtn");\n      const approveButton = $("approveBtn");\n      const publishNowButton = $("publishNowBtn");\n      if (saveButton) { saveButton.disabled = busy; saveButton.textContent = busy ? "Guardando…" : "Guardar borrador"; }\n      if (approveButton) approveButton.disabled = busy;\n      if (publishNowButton) publishNowButton.disabled = busy;',
+  );
+  html = html.replace(
+    '      $("saveBtn")?.addEventListener("click", () => saveDraft(false));\n      $("approveBtn")?.addEventListener("click", () => saveDraft(true));',
+    '      $("saveBtn")?.addEventListener("click", () => saveDraft(false));\n      $("approveBtn")?.addEventListener("click", () => saveDraft("schedule"));\n      $("publishNowBtn")?.addEventListener("click", () => saveDraft("now"));',
+  );
+  html = html.replace(
+    '      const scheduled = $("scheduledAt")?.value ? new Date($("scheduledAt").value).toISOString() : null;\n      const altText = $("altText")?.value.trim() || null;\n      if (!body) return showToast("Escribe el texto de la publicación primero.", true);\n      saveInProgress = true;\n      setSaveBusy(true);\n      try {',
+    '      let scheduled = $("scheduledAt")?.value ? new Date($("scheduledAt").value).toISOString() : null;\n      const altText = $("altText")?.value.trim() || null;\n      if (!body) return showToast("Escribe el texto de la publicación primero.", true);\n      if (approve === "now") scheduled = null;\n      if (approve === "schedule" && !scheduled) return showToast(\'Elige una fecha en "Programar para", o usa Publicar ahora.\', true);\n      saveInProgress = true;\n      setSaveBusy(true);\n      try {',
+  );
   return html;
 })();
 
