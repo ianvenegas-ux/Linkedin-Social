@@ -12,15 +12,19 @@ const LINKEDIN_VERSION = Deno.env.get("LINKEDIN_VERSION")?.trim() || "202608";
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const ALLOWED_IMAGE_HOST_SUFFIXES = [".supabase.co", ".sharepoint.com", ".1drv.com", ".onedrive.live.com", ".1drv.ms"];
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      ...CORS_HEADERS,
     },
   });
 }
@@ -160,7 +164,10 @@ function scopeIncludes(scope: string, wanted: string) {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return json(null, 204);
+  // A 204 must have no body: json(null, 204) sent the string "null", which made
+  // Deno throw, so every browser preflight got a 500 and "Publicar ahora" never
+  // reached the POST.
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (req.method !== "POST") return errorResponse("Use POST", 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
