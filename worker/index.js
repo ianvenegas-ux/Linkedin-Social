@@ -349,6 +349,53 @@ const ENHANCED_APP_TEMPLATE = (() => {
     '.toast { position:fixed;',
     '.cal-nav button.drag-over { background:var(--blue); color:#fff; border-color:var(--blue); } .toast { position:fixed;',
   );
+  // Supabase access tokens expire after one hour, but the session was never
+  // refreshed: a tab left open (or reopened later) kept sending the expired
+  // token, so every save failed with 401 ("No se pudo guardar") and image
+  // previews failed to sign. Refresh with the stored refresh_token before it
+  // expires, retry once on 401, and recover an expired session on reload
+  // instead of dropping it.
+  html = html.replace(
+    '    async function request(path, options = {}) {\n      const response = await fetch(endpoint(path), { ...options, headers: requestHeaders(options.headers || {}) });',
+    `    let refreshInFlight = null;
+    function storeSession(data) { session = data; if (data?.user) user = data.user; try { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch {} }
+    function refreshSession(source = session) {
+      if (!source?.refresh_token) return Promise.resolve(false);
+      if (!refreshInFlight) {
+        refreshInFlight = (async () => {
+          try {
+            const response = await fetch(endpoint("/api/auth/login?grant_type=refresh_token"), authRequestOptions({ method:"POST", cache:"no-store", headers:requestHeaders({ "Content-Type":"application/json", ...(LILI_TRANSPORT === "direct" ? { Authorization: "Bearer " + SUPABASE_PUBLISHABLE_KEY } : {}) }), body:JSON.stringify({ refresh_token: source.refresh_token }) }));
+            const data = await response.json().catch(() => null);
+            if (!response.ok || !data?.access_token) return false;
+            storeSession(data);
+            return true;
+          } catch { return false; } finally { refreshInFlight = null; }
+        })();
+      }
+      return refreshInFlight;
+    }
+    async function ensureFreshSession() {
+      if (!session?.access_token || !session.expires_at) return;
+      if (session.expires_at * 1000 - Date.now() < 60000) await refreshSession();
+    }
+    async function request(path, options = {}) {
+      await ensureFreshSession();
+      let response = await fetch(endpoint(path), { ...options, headers: requestHeaders(options.headers || {}) });
+      if (response.status === 401 && await refreshSession()) response = await fetch(endpoint(path), { ...options, headers: requestHeaders(options.headers || {}) });
+      if (response.status === 401) throw new Error("Tu sesión expiró. Vuelve a iniciar sesión; el texto que escribiste queda guardado en este navegador.");`,
+  );
+  html = html.replace(
+    'const response = await fetch(endpoint("/api/auth/user"), { headers:requestHeaders({ Authorization:"Bearer " + saved.access_token }) });\n        if (!response.ok) throw new Error("expired");\n        session = saved;',
+    'let response = await fetch(endpoint("/api/auth/user"), { headers:requestHeaders({ Authorization:"Bearer " + saved.access_token }) });\n        if (response.status === 401 && await refreshSession(saved)) response = await fetch(endpoint("/api/auth/user"), { headers:requestHeaders({ Authorization:"Bearer " + session.access_token }) });\n        if (!response.ok) throw new Error("expired");\n        if (session?.access_token !== saved.access_token) saved = session;\n        session = saved;',
+  );
+  html = html.replace(
+    'const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");',
+    'let saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");',
+  );
+  html = html.replace(
+    'const response = await fetch(FUNCTION_BASE + "/social-publish-linkedin", { method:"POST", headers:requestHeaders(',
+    'await ensureFreshSession();\n      const response = await fetch(FUNCTION_BASE + "/social-publish-linkedin", { method:"POST", headers:requestHeaders(',
+  );
   return html;
 })();
 
