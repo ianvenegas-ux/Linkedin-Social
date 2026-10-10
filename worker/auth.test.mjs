@@ -44,4 +44,13 @@ assert.match(
   /fetch\(endpoint\("\/api\/auth\/recover"\) \+ "\?redirect_to=" \+ encodeURIComponent\(applicationRoot\(\)\)/,
   "password recovery must send redirect_to as a query parameter, not only in the JSON body",
 );
+// Supabase access tokens expire after an hour; without a refresh every save from
+// a long-open tab failed with 401 and the editor only showed "No se pudo guardar".
+for (const page of [html, directHtml]) {
+  assert.match(page, /grant_type=refresh_token/, "the UI must refresh the Supabase session");
+  assert.match(page, /async function request\(path, options = \{\}\) \{\n\s*await ensureFreshSession\(\);/, "API requests must refresh an expiring token first");
+  assert.match(page, /response\.status === 401 && await refreshSession\(\)\) response = await fetch/, "API requests must retry once after a 401");
+  assert.match(page, /response\.status === 401 && await refreshSession\(saved\)/, "reloading with an expired token must refresh instead of logging out");
+  assert.match(page, /await ensureFreshSession\(\);\n\s*const response = await fetch\(FUNCTION_BASE \+ "\/social-publish-linkedin"/, "publishing must use a fresh token");
+}
 console.log("auth recovery regression test passed");
