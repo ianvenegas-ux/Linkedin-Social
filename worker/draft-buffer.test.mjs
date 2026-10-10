@@ -60,7 +60,7 @@ assert.match(
 );
 assert.match(
   bindBody,
-  /body\?\.addEventListener\("input", \(\) => \{ \$\("counter"\)\.textContent = body\.value\.length; \$\("previewBody"\)\.textContent = body\.value \|\| "Tu texto aparecerá aquí\.\.\."; scheduleBufferSave\(\); \}\)/,
+  /body\?\.addEventListener\("input", \(\) => \{ \$\("counter"\)\.textContent = body\.value\.length; setPreviewBody\(body\.value\); scheduleBufferSave\(\); \}\)/,
   "the body field must keep updating the counter/preview and also feed the debounced buffer save",
 );
 
