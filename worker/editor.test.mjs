@@ -64,7 +64,7 @@ const pick = name => {
   throw new Error(`${name} is not closed`);
 };
 const geometry = new Function(
-  "LINKEDIN_MIN_ASPECT", "LINKEDIN_MAX_ASPECT",
+  "FEED_MIN_ASPECT", "FEED_MAX_ASPECT",
   `${pick("linkedinFeedAspect")}\n${pick("cropRectForAspect")}\n${pick("cropRectFromAnchor")}\nreturn { linkedinFeedAspect, cropRectForAspect, cropRectFromAnchor };`,
 )(0.8, 1.91);
 assert.equal(geometry.linkedinFeedAspect(1200, 1200), 1, "a square image is shown square, uncropped");
