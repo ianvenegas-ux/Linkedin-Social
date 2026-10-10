@@ -34,9 +34,13 @@ assert.match(
   "relative signed Storage URLs must stay behind the Site's Supabase proxy",
 );
 
-assert.match(appHtml, /Ajustar encuadre/, "the composer must offer a crop/position editor");
+assert.match(appHtml, /Recortar imagen/, "the composer must offer a crop editor");
 assert.match(appHtml, /id="cropCanvas"/, "the crop editor must expose a preview canvas");
-assert.match(appHtml, /Arrastra la imagen dentro del recuadro/, "the crop editor must explain direct image dragging");
+assert.match(appHtml, /Arrastra el recuadro para moverlo y sus esquinas para cambiar el tamaño/, "the crop editor must explain moving and resizing the crop box");
+for (const key of ["free", "original", "square", "portrait", "landscape"]) {
+  assert.match(appHtml, new RegExp(`data-crop-aspect="${key}"`), `the crop editor must offer the ${key} aspect preset`);
+}
+assert.match(appHtml, /id="cropInfo"/, "the crop editor must report the output size and LinkedIn fit");
 assert.doesNotMatch(appHtml, /id="cropZoom"/, "the simple crop editor must not expose a zoom slider");
 assert.doesNotMatch(appHtml, /id="cropX"/, "the simple crop editor must not expose a horizontal slider");
 assert.doesNotMatch(appHtml, /id="cropY"/, "the simple crop editor must not expose a vertical slider");
@@ -44,6 +48,45 @@ assert.match(script, /addEventListener\("pointerdown"/, "the crop canvas must st
 assert.match(script, /addEventListener\("pointermove"/, "the crop canvas must update while dragging");
 assert.match(script, /canvas\.toBlob/, "applying the crop must create a new local image file");
 assert.match(script, /activeImage\s*=\s*\{[\s\S]*localFile:file[\s\S]*preview_url:url/, "applying the crop must replace the active image preview and file");
+const applyCropBody = script.slice(script.indexOf("function applyCropEditor"), script.indexOf("let previewExpanded"));
+assert.match(applyCropBody, /document\.createElement\("canvas"\)/, "the crop must be rendered at source resolution, not from the on-screen canvas");
+assert.match(applyCropBody, /state\.rect\.w \* scale/, "the crop output size must follow the selected rectangle");
+
+// Crop geometry and the LinkedIn feed aspect rules, exercised directly.
+const pick = name => {
+  const start = script.indexOf(`function ${name}(`);
+  assert(start >= 0, `${name} must exist`);
+  let depth = 0;
+  for (let i = script.indexOf("{", start); i < script.length; i++) {
+    if (script[i] === "{") depth++;
+    else if (script[i] === "}" && --depth === 0) return script.slice(start, i + 1);
+  }
+  throw new Error(`${name} is not closed`);
+};
+const geometry = new Function(
+  "LINKEDIN_MIN_ASPECT", "LINKEDIN_MAX_ASPECT",
+  `${pick("linkedinFeedAspect")}\n${pick("cropRectForAspect")}\n${pick("cropRectFromAnchor")}\nreturn { linkedinFeedAspect, cropRectForAspect, cropRectFromAnchor };`,
+)(0.8, 1.91);
+assert.equal(geometry.linkedinFeedAspect(1200, 1200), 1, "a square image is shown square, uncropped");
+assert.equal(geometry.linkedinFeedAspect(1080, 1350), 0.8, "a 4:5 portrait is shown uncropped");
+assert.equal(geometry.linkedinFeedAspect(1080, 1920), 0.8, "taller images are cut to 4:5 in the feed");
+assert.equal(geometry.linkedinFeedAspect(3000, 1000), 1.91, "wider images are cut to 1.91:1 in the feed");
+assert.deepEqual(geometry.cropRectForAspect(2000, 1000, 1), { x: 500, y: 0, w: 1000, h: 1000 }, "a square crop of a landscape image is centred");
+assert.deepEqual(geometry.cropRectForAspect(2000, 1000, 1, 0, 500), { x: 0, y: 0, w: 1000, h: 1000 }, "an aspect crop is kept inside the image");
+assert.deepEqual(geometry.cropRectForAspect(800, 600, null), { x: 0, y: 0, w: 800, h: 600 }, "a free crop starts as the whole image");
+const free = geometry.cropRectFromAnchor(100, 100, 400, 300, 1000, 1000, null, 20);
+assert.deepEqual(free, { x: 100, y: 100, w: 300, h: 200 }, "a free crop follows the pointer");
+const flipped = geometry.cropRectFromAnchor(500, 500, 200, 100, 1000, 1000, null, 20);
+assert.deepEqual(flipped, { x: 200, y: 100, w: 300, h: 400 }, "dragging past the anchor flips the rectangle");
+const locked = geometry.cropRectFromAnchor(0, 0, 900, 200, 1000, 1000, 1, 20);
+assert.equal(locked.w, locked.h, "a locked 1:1 crop stays square");
+const clamped = geometry.cropRectFromAnchor(800, 800, 2000, 1000, 1000, 1000, 1, 20);
+assert(clamped.x + clamped.w <= 1000 && clamped.y + clamped.h <= 1000, "a locked crop never leaves the image");
+
+// The LinkedIn preview must look like the feed: real image proportions and "…más".
+assert.match(script, /onload="fitLinkedinPreview\(this\)"/, "the preview image must take LinkedIn's feed proportions once loaded");
+assert.match(script, /function setPreviewBody\(text\)/, "the preview text must be rendered through the LinkedIn truncation helper");
+assert.match(script, /"…más"/, "long posts must collapse behind LinkedIn's \"…más\" link");
 
 // Image transforms. The Supabase project is in us-west-2 and the team works from
 // China, so the composer must never pull a full-size phone original just to fill a
