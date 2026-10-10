@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPublishedPostUpdate } from "./publish-state.mjs";
+import { toLinkedinLittleText } from "./little-text.mjs";
 
 // The Lilian Trade organization page - still the only organization account
 // that exists, so this stays a fixed identity check. A `social_accounts` row
@@ -103,7 +104,7 @@ async function uploadImage(token: string, uploadUrl: string, bytes: Uint8Array, 
 async function createPost(token: string, commentary: string, imageUrn: string | null, altText: string | null, author: string) {
   const post: Record<string, unknown> = {
     author,
-    commentary,
+    commentary: toLinkedinLittleText(commentary),
     visibility: "PUBLIC",
     distribution: {
       feedDistribution: "MAIN_FEED",

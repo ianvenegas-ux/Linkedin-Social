@@ -26,4 +26,10 @@ assert.match(
   "a failed publication-state update must not be silently ignored",
 );
 
+assert.match(
+  source,
+  /commentary: toLinkedinLittleText\(commentary\)/,
+  "the post text must be escaped as LinkedIn little text, or LinkedIn truncates it",
+);
+
 console.log("deployed LinkedIn Edge Function regression test passed");
