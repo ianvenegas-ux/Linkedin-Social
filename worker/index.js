@@ -121,14 +121,14 @@ const ENHANCED_APP_TEMPLATE = (() => {
 
     // LinkedIn shows a single feed image at its own aspect ratio, between 1.91:1
     // (landscape) and 4:5 (portrait); anything wider or taller is centre-cropped.
-    const LINKEDIN_MIN_ASPECT = 0.8;
-    const LINKEDIN_MAX_ASPECT = 1.91;
+    const FEED_MIN_ASPECT = 0.8;
+    const FEED_MAX_ASPECT = 1.91;
     const CROP_ASPECTS = { free: null, original: "original", square: 1, portrait: 0.8, landscape: 1.91 };
     const CROP_MAX_OUTPUT = 2400;
 
     function linkedinFeedAspect(width, height) {
-      if (!width || !height) return LINKEDIN_MAX_ASPECT;
-      return Math.min(LINKEDIN_MAX_ASPECT, Math.max(LINKEDIN_MIN_ASPECT, width / height));
+      if (!width || !height) return FEED_MAX_ASPECT;
+      return Math.min(FEED_MAX_ASPECT, Math.max(FEED_MIN_ASPECT, width / height));
     }
 
     function fitLinkedinPreview(img) {
@@ -223,7 +223,7 @@ const ENHANCED_APP_TEMPLATE = (() => {
       if (info) {
         const outScale = Math.min(1, CROP_MAX_OUTPUT / Math.max(state.rect.w, state.rect.h));
         const size = Math.round(state.rect.w * outScale) + " × " + Math.round(state.rect.h * outScale) + " px · " + aspectLabel(ratio);
-        const outside = ratio > LINKEDIN_MAX_ASPECT + 0.005 || ratio < LINKEDIN_MIN_ASPECT - 0.005;
+        const outside = ratio > FEED_MAX_ASPECT + 0.005 || ratio < FEED_MIN_ASPECT - 0.005;
         info.textContent = outside ? size + " · LinkedIn recortará los bordes en el feed (acepta de 1,91:1 a 4:5)." : size + " · LinkedIn la mostrará completa.";
         info.classList.toggle("bad", outside);
       }
